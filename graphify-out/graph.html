@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>graphify - graphify-out/graph.html</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
+        integrity="sha384-Ux6phic9PEHJ38YtrijhkzyJ8yQlH8i/+buBR8s3mAZOJrP1gwyvAcIYl3GWtpX1"
+        crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #graph { flex: 1; }
+  #sidebar { width: 280px; background: #1a1a2e; border-left: 1px solid #2a2a4e; display: flex; flex-direction: column; overflow: hidden; }
+  #search-wrap { padding: 12px; border-bottom: 1px solid #2a2a4e; }
+  #search { width: 100%; background: #0f0f1a; border: 1px solid #3a3a5e; color: #e0e0e0; padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: #4E79A7; }
+  #search-results { max-height: 140px; overflow-y: auto; padding: 4px 12px; border-bottom: 1px solid #2a2a4e; display: none; }
+  .search-item { padding: 4px 6px; cursor: pointer; border-radius: 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-item:hover { background: #2a2a4e; }
+  #info-panel { padding: 14px; border-bottom: 1px solid #2a2a4e; min-height: 140px; }
+  #info-panel h3 { font-size: 13px; color: #aaa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #info-content { font-size: 13px; color: #ccc; line-height: 1.6; }
+  #info-content .field { margin-bottom: 5px; }
+  #info-content .field b { color: #e0e0e0; }
+  #info-content .empty { color: #555; font-style: italic; }
+  .neighbor-link { display: block; padding: 2px 6px; margin: 2px 0; border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid #333; }
+  .neighbor-link:hover { background: #2a2a4e; }
+  #neighbors-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+  #legend-wrap { flex: 1; overflow-y: auto; padding: 12px; }
+  #legend-wrap h3 { font-size: 13px; color: #aaa; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; border-radius: 4px; font-size: 12px; }
+  .legend-item:hover { background: #2a2a4e; padding-left: 4px; }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { color: #666; font-size: 11px; }
+  #stats { padding: 10px 14px; border-top: 1px solid #2a2a4e; font-size: 11px; color: #555; }
+  #legend-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+  #legend-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #aaa; user-select: none; }
+  #legend-controls label:hover { color: #e0e0e0; }
+  .legend-cb, #select-all-cb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid #3a3a5e; border-radius: 3px; background: #0f0f1a; cursor: pointer; position: relative; flex-shrink: 0; }
+  .legend-cb:checked, #select-all-cb:checked { background: #4E79A7; border-color: #4E79A7; }
+  .legend-cb:checked::after, #select-all-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 1px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  #select-all-cb:indeterminate { background: #4E79A7; border-color: #4E79A7; }
+  #select-all-cb:indeterminate::after { content: ''; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #fff; border: none; transform: none; }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="sidebar">
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+  <div id="info-panel">
+    <h3>Node Info</h3>
+    <div id="info-content"><span class="empty">Click a node to inspect it</span></div>
+  </div>
+  <div id="legend-wrap">
+    <h3>Communities</h3>
+    <div id="legend-controls">
+      <label><input type="checkbox" id="select-all-cb" checked onchange="toggleAllCommunities(!this.checked)">Select All</label>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="stats">50 nodes &middot; 68 edges &middot; 9 communities</div>
+</div>
+<script>
+const RAW_NODES = [{"id": "claudemd_scanmed_app", "label": "ScanMed Application", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "ScanMed Application", "community": 5, "community_name": "App Architecture & PRD", "source_file": "CLAUDE.md", "file_type": "document", "degree": 2}, {"id": "indexhtml_main_file", "label": "index.html (Single-File App)", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "index.html (Single-File App)", "community": 5, "community_name": "App Architecture & PRD", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "prd_scanmed", "label": "PRD ScanMed", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "PRD ScanMed", "community": 5, "community_name": "App Architecture & PRD", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 1}, {"id": "indexhtml_state", "label": "State Object", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 36.2, "font": {"size": 12, "color": "#ffffff"}, "title": "State Object", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 7}, {"id": "indexhtml_config", "label": "Supabase Config (SB_URL, SB_KEY, LS_KEY)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Supabase Config (SB_URL, SB_KEY, LS_KEY)", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "indexhtml_utils", "label": "Utility Functions (uid, today, getExpiryStatus, daysUntilExpiry, showToast)", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Utility Functions (uid, today, getExpiryStatus, daysUntilExpiry, showToast)", "community": 6, "community_name": "CSS Theming & UI Utilities", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_seedmockdata", "label": "seedMockData()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "seedMockData()", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "indexhtml_loadstate", "label": "loadState()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "loadState()", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "indexhtml_savestate", "label": "saveState()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 28.8, "font": {"size": 12, "color": "#ffffff"}, "title": "saveState()", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 5}, {"id": "indexhtml_fetchbyaic", "label": "fetchByAIC(aic)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 28.8, "font": {"size": 12, "color": "#ffffff"}, "title": "fetchByAIC(aic)", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 5}, {"id": "indexhtml_searchfarmaci", "label": "searchFarmaci(query)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "searchFarmaci(query)", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_navigate", "label": "navigate(screenId)", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 40.0, "font": {"size": 12, "color": "#ffffff"}, "title": "navigate(screenId)", "community": 4, "community_name": "Navigation & Screen Routing", "source_file": "index.html", "file_type": "code", "degree": 8}, {"id": "indexhtml_renderhome", "label": "renderHome()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "renderHome()", "community": 4, "community_name": "Navigation & Screen Routing", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "indexhtml_renderdispensa", "label": "renderDispensa()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 28.8, "font": {"size": 12, "color": "#ffffff"}, "title": "renderDispensa()", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 5}, {"id": "indexhtml_addtodispensa", "label": "addToDispensa()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 36.2, "font": {"size": 12, "color": "#ffffff"}, "title": "addToDispensa()", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 7}, {"id": "indexhtml_removefromdispensa", "label": "removeFromDispensa()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "removeFromDispensa()", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "indexhtml_checkduplicateprincipio", "label": "checkDuplicatePrincipio()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "checkDuplicatePrincipio()", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "indexhtml_showsafetyalert", "label": "showSafetyAlert()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "showSafetyAlert()", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_rendercure", "label": "renderCure()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 32.5, "font": {"size": 12, "color": "#ffffff"}, "title": "renderCure()", "community": 3, "community_name": "Therapy Cycles & Adherence", "source_file": "index.html", "file_type": "code", "degree": 6}, {"id": "indexhtml_logdose", "label": "logDose()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "logDose()", "community": 3, "community_name": "Therapy Cycles & Adherence", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_adherencepercent", "label": "adherencePercent()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "adherencePercent()", "community": 3, "community_name": "Therapy Cycles & Adherence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "indexhtml_initscanner", "label": "initScanner()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "initScanner()", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_renderscanresult", "label": "renderScanResult()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "renderScanResult()", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_initsearch", "label": "initSearch()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "initSearch()", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "indexhtml_initmodals", "label": "initModals()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "initModals()", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_openmodal", "label": "openModal() / closeModal()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "openModal() / closeModal()", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "indexhtml_domcontentloaded", "label": "DOMContentLoaded Init", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 28.8, "font": {"size": 12, "color": "#ffffff"}, "title": "DOMContentLoaded Init", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 5}, {"id": "indexhtml_localstorage", "label": "localStorage (scanmed_v1)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 28.8, "font": {"size": 12, "color": "#ffffff"}, "title": "localStorage (scanmed_v1)", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 5}, {"id": "indexhtml_dispensa_datamodel", "label": "Dispensa Data Model", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Dispensa Data Model", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 4}, {"id": "indexhtml_cicli_datamodel", "label": "Cicli Data Model", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "Cicli Data Model", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "indexhtml_supabase_farmaci_table", "label": "Supabase farmaci Table", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "Supabase farmaci Table", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "prd_scanner_module", "label": "Scanner Module (PRD \u00a73.1)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Scanner Module (PRD \u00a73.1)", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 2}, {"id": "prd_search_module", "label": "Search Module (PRD \u00a73.2)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Search Module (PRD \u00a73.2)", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 2}, {"id": "prd_dispensa_module", "label": "Dispensa Module (PRD \u00a73.3)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Dispensa Module (PRD \u00a73.3)", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 1}, {"id": "prd_safety_module", "label": "Safety Clinical Check Module (PRD \u00a73.4)", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Safety Clinical Check Module (PRD \u00a73.4)", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 2}, {"id": "prd_cicli_module", "label": "Cicli & Aderenza Terapeutica Module (PRD \u00a73.5)", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 21.2, "font": {"size": 12, "color": "#ffffff"}, "title": "Cicli &amp; Aderenza Terapeutica Module (PRD \u00a73.5)", "community": 3, "community_name": "Therapy Cycles & Adherence", "source_file": "PRD-scanmed.md", "file_type": "document", "degree": 3}, {"id": "rationale_safety_gate", "label": "Safety Gate Design Rationale", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Safety Gate Design Rationale", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "CLAUDE.md", "file_type": "rationale", "degree": 2}, {"id": "rationale_aic_padding", "label": "AIC Padding Rationale", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "AIC Padding Rationale", "community": 0, "community_name": "Supabase Integration & Drug Lookup", "source_file": "CLAUDE.md", "file_type": "rationale", "degree": 1}, {"id": "rationale_single_file_arch", "label": "Single-File Architecture Rationale", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Single-File Architecture Rationale", "community": 5, "community_name": "App Architecture & PRD", "source_file": "CLAUDE.md", "file_type": "rationale", "degree": 1}, {"id": "rationale_offline_first", "label": "Offline-First / localStorage Rationale", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Offline-First / localStorage Rationale", "community": 1, "community_name": "State Persistence & Dispensa", "source_file": "PRD-scanmed.md", "file_type": "rationale", "degree": 1}, {"id": "indexhtml_css_root", "label": "CSS Custom Properties (:root)", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "CSS Custom Properties (:root)", "community": 6, "community_name": "CSS Theming & UI Utilities", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_expiry_color_coding", "label": "Expiry Status Color Coding (safe/warning/expired)", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 17.5, "font": {"size": 12, "color": "#ffffff"}, "title": "Expiry Status Color Coding (safe/warning/expired)", "community": 6, "community_name": "CSS Theming & UI Utilities", "source_file": "index.html", "file_type": "rationale", "degree": 2}, {"id": "indexhtml_screen_home", "label": "Screen: Home", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Screen: Home", "community": 4, "community_name": "Navigation & Screen Routing", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_screen_scanner", "label": "Screen: Scanner", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 10.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Screen: Scanner", "community": 7, "community_name": "Scanner Module", "source_file": "index.html", "file_type": "code", "degree": 0}, {"id": "indexhtml_screen_cerca", "label": "Screen: Cerca (Search)", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 10.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Screen: Cerca (Search)", "community": 8, "community_name": "Drug Search Module", "source_file": "index.html", "file_type": "code", "degree": 0}, {"id": "indexhtml_screen_dispensa", "label": "Screen: Dispensa", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Screen: Dispensa", "community": 4, "community_name": "Navigation & Screen Routing", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_screen_cure", "label": "Screen: Cicli di Cura", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Screen: Cicli di Cura", "community": 4, "community_name": "Navigation & Screen Routing", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_modal_add_drug", "label": "Modal: Add Drug to Dispensa", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Modal: Add Drug to Dispensa", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_modal_safety_alert", "label": "Modal: Safety Alert (centered)", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Modal: Safety Alert (centered)", "community": 2, "community_name": "Safety Gate & Drug Addition", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "indexhtml_modal_add_ciclo", "label": "Modal: Add Ciclo", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 13.8, "font": {"size": 0, "color": "#ffffff"}, "title": "Modal: Add Ciclo", "community": 3, "community_name": "Therapy Cycles & Adherence", "source_file": "index.html", "file_type": "code", "degree": 1}];
+const RAW_EDGES = [{"from": "claudemd_scanmed_app", "to": "indexhtml_main_file", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_scanmed", "to": "claudemd_scanmed_app", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "rationale_single_file_arch", "to": "indexhtml_main_file", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_logdose", "to": "indexhtml_state", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_rendercure", "to": "indexhtml_state", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_renderdispensa", "to": "indexhtml_state", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_renderhome", "to": "indexhtml_state", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_seedmockdata", "to": "indexhtml_state", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_state", "to": "indexhtml_cicli_datamodel", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_state", "to": "indexhtml_dispensa_datamodel", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_fetchbyaic", "to": "indexhtml_config", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_searchfarmaci", "to": "indexhtml_config", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_utils", "to": "indexhtml_expiry_color_coding", "label": "implements", "title": "implements [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_loadstate", "to": "indexhtml_seedmockdata", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_seedmockdata", "to": "indexhtml_savestate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_domcontentloaded", "to": "indexhtml_loadstate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_loadstate", "to": "indexhtml_localstorage", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_addtodispensa", "to": "indexhtml_savestate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_logdose", "to": "indexhtml_savestate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_removefromdispensa", "to": "indexhtml_savestate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_savestate", "to": "indexhtml_localstorage", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_fetchbyaic", "to": "indexhtml_searchfarmaci", "label": "semantically_similar_to", "title": "semantically_similar_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "indexhtml_fetchbyaic", "to": "indexhtml_supabase_farmaci_table", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initscanner", "to": "indexhtml_fetchbyaic", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "rationale_aic_padding", "to": "indexhtml_fetchbyaic", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initsearch", "to": "indexhtml_searchfarmaci", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_searchfarmaci", "to": "indexhtml_supabase_farmaci_table", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_domcontentloaded", "to": "indexhtml_navigate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initmodals", "to": "indexhtml_navigate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_navigate", "to": "indexhtml_rendercure", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_navigate", "to": "indexhtml_renderdispensa", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_navigate", "to": "indexhtml_renderhome", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_navigate", "to": "indexhtml_screen_cure", "label": "calls", "title": "calls [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "indexhtml_navigate", "to": "indexhtml_screen_dispensa", "label": "calls", "title": "calls [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "indexhtml_navigate", "to": "indexhtml_screen_home", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_addtodispensa", "to": "indexhtml_renderdispensa", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_removefromdispensa", "to": "indexhtml_renderdispensa", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_dispensa_module", "to": "indexhtml_renderdispensa", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_addtodispensa", "to": "indexhtml_checkduplicateprincipio", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_addtodispensa", "to": "indexhtml_showsafetyalert", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initmodals", "to": "indexhtml_addtodispensa", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_modal_add_drug", "to": "indexhtml_addtodispensa", "label": "implements", "title": "implements [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "rationale_safety_gate", "to": "indexhtml_addtodispensa", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_safety_module", "to": "indexhtml_checkduplicateprincipio", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "rationale_safety_gate", "to": "indexhtml_checkduplicateprincipio", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_modal_safety_alert", "to": "indexhtml_showsafetyalert", "label": "implements", "title": "implements [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_showsafetyalert", "to": "indexhtml_openmodal", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_safety_module", "to": "indexhtml_showsafetyalert", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_rendercure", "to": "indexhtml_logdose", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_modal_add_ciclo", "to": "indexhtml_rendercure", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "indexhtml_rendercure", "to": "indexhtml_adherencepercent", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_cicli_module", "to": "indexhtml_rendercure", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_cicli_module", "to": "indexhtml_logdose", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_cicli_module", "to": "indexhtml_adherencepercent", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_domcontentloaded", "to": "indexhtml_initscanner", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initscanner", "to": "indexhtml_renderscanresult", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_scanner_module", "to": "indexhtml_initscanner", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_domcontentloaded", "to": "indexhtml_initsearch", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "prd_search_module", "to": "indexhtml_initsearch", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_domcontentloaded", "to": "indexhtml_initmodals", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_initmodals", "to": "indexhtml_openmodal", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_localstorage", "to": "indexhtml_cicli_datamodel", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_localstorage", "to": "indexhtml_dispensa_datamodel", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "rationale_offline_first", "to": "indexhtml_localstorage", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_cicli_datamodel", "to": "indexhtml_dispensa_datamodel", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "indexhtml_dispensa_datamodel", "to": "indexhtml_supabase_farmaci_table", "label": "shares_data_with", "title": "shares_data_with [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "prd_scanner_module", "to": "prd_search_module", "label": "semantically_similar_to", "title": "semantically_similar_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "indexhtml_css_root", "to": "indexhtml_expiry_color_coding", "label": "implements", "title": "implements [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}];
+const LEGEND = [{"cid": 0, "color": "#4E79A7", "label": "Supabase Integration &amp; Drug Lookup", "count": 11}, {"cid": 1, "color": "#F28E2B", "label": "State Persistence &amp; Dispensa", "count": 11}, {"cid": 2, "color": "#E15759", "label": "Safety Gate &amp; Drug Addition", "count": 9}, {"cid": 3, "color": "#76B7B2", "label": "Therapy Cycles &amp; Adherence", "count": 5}, {"cid": 4, "color": "#59A14F", "label": "Navigation &amp; Screen Routing", "count": 5}, {"cid": 5, "color": "#EDC948", "label": "App Architecture &amp; PRD", "count": 4}, {"cid": 6, "color": "#B07AA1", "label": "CSS Theming &amp; UI Utilities", "count": 3}, {"cid": 7, "color": "#FF9DA7", "label": "Scanner Module", "count": 1}, {"cid": 8, "color": "#9C755F", "label": "Drug Search Module", "count": 1}];
+
+// HTML-escape helper — prevents XSS when injecting graph data into innerHTML
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Build vis datasets
+const nodesDS = new vis.DataSet(RAW_NODES.map(n => ({
+  id: n.id, label: n.label, color: n.color, size: n.size,
+  font: n.font, title: n.title,
+  _community: n.community, _community_name: n.community_name,
+  _source_file: n.source_file, _file_type: n.file_type, _degree: n.degree,
+})));
+
+const edgesDS = new vis.DataSet(RAW_EDGES.map((e, i) => ({
+  id: i, from: e.from, to: e.to,
+  label: '',
+  title: e.title,
+  dashes: e.dashes,
+  width: e.width,
+  color: e.color,
+  arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+})));
+
+const container = document.getElementById('graph');
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -60,
+      centralGravity: 0.005,
+      springLength: 120,
+      springConstant: 0.08,
+      damping: 0.4,
+      avoidOverlap: 0.8,
+    },
+    stabilization: { iterations: 200, fit: true },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 100,
+    hideEdgesOnDrag: true,
+    navigationButtons: false,
+    keyboard: false,
+  },
+  nodes: { shape: 'dot', borderWidth: 1.5 },
+  edges: { smooth: { type: 'continuous', roundness: 0.2 }, selectionWidth: 3 },
+});
+
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: { enabled: false } });
+});
+
+function showInfo(nodeId) {
+  const n = nodesDS.get(nodeId);
+  if (!n) return;
+  const neighborIds = network.getConnectedNodes(nodeId);
+  const neighborItems = neighborIds.map(nid => {
+    const nb = nodesDS.get(nid);
+    const color = nb ? nb.color.background : '#555';
+    return `<span class="neighbor-link" style="border-left-color:${esc(color)}" onclick="focusNode(${JSON.stringify(nid)})">${esc(nb ? nb.label : nid)}</span>`;
+  }).join('');
+  document.getElementById('info-content').innerHTML = `
+    <div class="field"><b>${esc(n.label)}</b></div>
+    <div class="field">Type: ${esc(n._file_type || 'unknown')}</div>
+    <div class="field">Community: ${esc(n._community_name)}</div>
+    <div class="field">Source: ${esc(n._source_file || '-')}</div>
+    <div class="field">Degree: ${n._degree}</div>
+    ${neighborIds.length ? `<div class="field" style="margin-top:8px;color:#aaa;font-size:11px">Neighbors (${neighborIds.length})</div><div id="neighbors-list">${neighborItems}</div>` : ''}
+  `;
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.4, animation: true });
+  network.selectNodes([nodeId]);
+  showInfo(nodeId);
+}
+
+// Track hovered node — hover detection is more reliable than click params
+let hoveredNodeId = null;
+network.on('hoverNode', params => {
+  hoveredNodeId = params.node;
+  container.style.cursor = 'pointer';
+});
+network.on('blurNode', () => {
+  hoveredNodeId = null;
+  container.style.cursor = 'default';
+});
+container.addEventListener('click', () => {
+  if (hoveredNodeId !== null) {
+    showInfo(hoveredNodeId);
+    network.selectNodes([hoveredNodeId]);
+  }
+});
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    showInfo(params.nodes[0]);
+  } else if (hoveredNodeId === null) {
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  }
+});
+
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = '';
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = RAW_NODES.filter(n => n.label.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { searchResults.style.display = 'none'; return; }
+  searchResults.style.display = 'block';
+  matches.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'search-item';
+    el.textContent = n.label;
+    el.style.borderLeft = `3px solid ${n.color.background}`;
+    el.style.paddingLeft = '8px';
+    el.onclick = () => {
+      network.focus(n.id, { scale: 1.5, animation: true });
+      network.selectNodes([n.id]);
+      showInfo(n.id);
+      searchResults.style.display = 'none';
+      searchInput.value = '';
+    };
+    searchResults.appendChild(el);
+  });
+});
+document.addEventListener('click', e => {
+  if (!searchResults.contains(e.target) && e.target !== searchInput)
+    searchResults.style.display = 'none';
+});
+
+const hiddenCommunities = new Set();
+
+const selectAllCb = document.getElementById('select-all-cb');
+
+function updateSelectAllState() {
+  const total = LEGEND.length;
+  const hidden = hiddenCommunities.size;
+  selectAllCb.checked = hidden === 0;
+  selectAllCb.indeterminate = hidden > 0 && hidden < total;
+}
+
+function toggleAllCommunities(hide) {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    hide ? item.classList.add('dimmed') : item.classList.remove('dimmed');
+  });
+  document.querySelectorAll('.legend-cb').forEach(cb => {
+    cb.checked = !hide;
+  });
+  LEGEND.forEach(c => {
+    if (hide) hiddenCommunities.add(c.cid); else hiddenCommunities.delete(c.cid);
+  });
+  const updates = RAW_NODES.map(n => ({ id: n.id, hidden: hide }));
+  nodesDS.update(updates);
+  updateSelectAllState();
+}
+
+const legendEl = document.getElementById('legend');
+LEGEND.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'legend-cb';
+  cb.checked = true;
+  cb.addEventListener('change', (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      hiddenCommunities.delete(c.cid);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenCommunities.add(c.cid);
+      item.classList.add('dimmed');
+    }
+    const updates = RAW_NODES
+      .filter(n => n.community === c.cid)
+      .map(n => ({ id: n.id, hidden: !cb.checked }));
+    nodesDS.update(updates);
+    updateSelectAllState();
+  });
+  item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+    <span class="legend-label">${c.label}</span>
+    <span class="legend-count">${c.count}</span>`;
+  item.prepend(cb);
+  item.onclick = (e) => {
+    if (e.target === cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  };
+  legendEl.appendChild(item);
+});
+</script>
+<script>
+// Render hyperedges as shaded regions
+const hyperedges = [{"id": "safety_gate_flow", "label": "Safety Gate Flow: addToDispensa \u2192 checkDuplicatePrincipio \u2192 showSafetyAlert", "nodes": ["indexhtml_addtodispensa", "indexhtml_checkduplicateprincipio", "indexhtml_showsafetyalert", "indexhtml_modal_safety_alert"], "relation": "implement", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "index.html"}, {"id": "supabase_query_flow", "label": "Supabase Query Flow: Config \u2192 fetchByAIC/searchFarmaci \u2192 farmaci table", "nodes": ["indexhtml_config", "indexhtml_fetchbyaic", "indexhtml_searchfarmaci", "indexhtml_supabase_farmaci_table"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "index.html"}, {"id": "persistence_state_flow", "label": "Persistence Flow: state \u2194 localStorage \u2194 loadState/saveState/seedMockData", "nodes": ["indexhtml_state", "indexhtml_localstorage", "indexhtml_loadstate", "indexhtml_savestate", "indexhtml_seedmockdata"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "index.html"}];
+// afterDrawing passes ctx already transformed to network coordinate space.
+// Draw node positions raw — no manual pan/zoom/DPR math needed.
+network.on('afterDrawing', function(ctx) {
+    hyperedges.forEach(h => {
+        const positions = h.nodes
+            .map(nid => network.getPositions([nid])[nid])
+            .filter(p => p !== undefined);
+        if (positions.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Centroid and expanded hull in network coordinates
+        const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+        const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+        const expanded = positions.map(p => ({
+            x: cx + (p.x - cx) * 1.15,
+            y: cy + (p.y - cy) * 1.15
+        }));
+        ctx.moveTo(expanded[0].x, expanded[0].y);
+        expanded.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        // Label
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#4f46e5';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.label, cx, cy - 5);
+        ctx.restore();
+    });
+});
+</script>
+</body>
+</html>

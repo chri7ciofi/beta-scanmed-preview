@@ -54,6 +54,10 @@ Everything is in one file, structured top-to-bottom:
 ## CSS conventions
 
 - All colors and spacing via CSS variables in `:root`
+  - **Primary blues**: `--blue-primary: #1E62EC` (buttons, nav, headers) · `--blue-secondary: #2E70F0` (accents, borders) · `--blue-light: #7BA5F2` (hover states)
+  - **Backgrounds**: `--blue-pale: #F0F5FF` (card/dialog backgrounds) · `--cream: #F5F0E8` (main app background)
+  - **Text**: `--text-primary: #0A1931` (dark navy headings/body) · `--text-muted: #5A6F8F` (secondary text)
+  - **Status**: `--amber: #D4892A` (secondary CTA) · `--red-expired: #C0392B` / `--orange-warn: #E67E22` (expiry warnings)
 - Expiry status drives CSS class (`safe` / `warning` / `expired`) on `.drug-card` and `.chip` — colors cascade from those classes
 - Phone frame (390×844px) is stripped at `@media (max-width: 430px)` for real mobile
 - Modals are bottom-sheets by default; the safety alert uses `.modal-overlay.center` for a centered dialog

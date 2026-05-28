@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --green-deep: #1B3A2F;
-  --green-sage: #4A7C59;
-  --green-light: #A8D5BA;
-  --green-pale: #D8EDE1;
+  --blue-primary: #1E62EC;
+  --blue-secondary: #2E70F0;
+  --blue-light: #7BA5F2;
+  --blue-pale: #F0F5FF;
   --cream: #F5F0E8;
   --cream-dark: #EDE8DF;
   --cream-darker: #E2DDD4;
@@ -23,9 +23,9 @@
   --red-pale: #FDECEA;
   --orange-warn: #E67E22;
   --orange-pale: #FEF3E2;
-  --text-primary: #1B2E25;
-  --text-secondary: #3A5445;
-  --text-muted: #6B7E74;
+  --text-primary: #0A1931;
+  --text-secondary: #1A2F4A;
+  --text-muted: #5A6F8F;
   --white: #FFFFFF;
   --font-display: 'Fraunces', Georgia, serif;
   --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -35,17 +35,17 @@
   --radius-lg: 20px;
   --radius-xl: 24px;
   --radius-full: 999px;
-  --shadow-sm: 0 1px 4px rgba(27,58,47,.08);
-  --shadow-card: 0 2px 12px rgba(27,58,47,.10);
-  --shadow-float: 0 8px 24px rgba(27,58,47,.18);
-  --shadow-deep: 0 16px 48px rgba(27,58,47,.22);
+  --shadow-sm: 0 1px 4px rgba(30,98,236,.08);
+  --shadow-card: 0 2px 12px rgba(30,98,236,.10);
+  --shadow-float: 0 8px 24px rgba(30,98,236,.18);
+  --shadow-deep: 0 16px 48px rgba(30,98,236,.22);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   height: 100%;
-  background: #0d1f18;
+  background: #0c1625;
   font-family: var(--font-ui);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
@@ -71,7 +71,7 @@ html, body {
 
 .status-bar {
   height: 44px;
-  background: var(--green-deep);
+  background: var(--blue-primary);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -121,7 +121,7 @@ html, body {
 /* ─── BOTTOM NAV ─── */
 .bottom-nav {
   height: 72px;
-  background: var(--green-deep);
+  background: var(--blue-primary);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   flex-shrink: 0;
@@ -160,7 +160,7 @@ html, body {
 
 /* ─── SCREEN HEADERS ─── */
 .screen-header {
-  background: var(--green-deep);
+  background: var(--blue-primary);
   padding: 20px 20px 24px;
   position: relative;
   overflow: hidden;
@@ -186,7 +186,7 @@ html, body {
 .screen-header .subtitle {
   font-size: 12px;
   font-weight: 500;
-  color: var(--green-light);
+  color: var(--blue-light);
   letter-spacing: .5px;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -236,7 +236,7 @@ html, body {
   gap: 6px;
 }
 
-.drug-card.safe    { border-left-color: var(--green-sage); }
+.drug-card.safe    { border-left-color: var(--blue-secondary); }
 .drug-card.warning { border-left-color: var(--orange-warn); }
 .drug-card.expired { border-left-color: var(--red-expired); }
 
@@ -270,7 +270,7 @@ html, body {
   font-weight: 600;
 }
 
-.chip.safe    { background: var(--green-pale); color: var(--green-sage); }
+.chip.safe    { background: var(--blue-pale); color: var(--blue-secondary); }
 .chip.warning { background: var(--orange-pale); color: var(--orange-warn); }
 .chip.expired { background: var(--red-pale); color: var(--red-expired); }
 
@@ -297,7 +297,7 @@ html, body {
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
-  color: var(--green-deep);
+  color: var(--blue-primary);
   line-height: 1;
 }
 
@@ -332,7 +332,7 @@ html, body {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
-  color: var(--green-deep);
+  color: var(--blue-primary);
 }
 
 .dose-time .period {
@@ -343,7 +343,7 @@ html, body {
 .dose-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--green-light);
+  background: var(--blue-light);
   flex-shrink: 0;
 }
 
@@ -372,7 +372,7 @@ html, body {
   transition: border-color .2s;
 }
 
-.input-field:focus { border-color: var(--green-sage); }
+.input-field:focus { border-color: var(--blue-secondary); }
 .input-field::placeholder { color: var(--text-muted); }
 
 /* ─── BUTTONS ─── */
@@ -392,8 +392,8 @@ html, body {
 }
 
 .btn:active { transform: scale(.97); }
-.btn-primary { background: var(--green-deep); color: var(--cream); }
-.btn-secondary { background: var(--green-pale); color: var(--green-deep); }
+.btn-primary { background: var(--blue-primary); color: var(--cream); }
+.btn-secondary { background: var(--blue-pale); color: var(--blue-primary); }
 .btn-amber { background: var(--amber); color: white; box-shadow: 0 4px 14px rgba(212,137,42,.35); }
 .btn-ghost { background: transparent; color: var(--text-muted); }
 .btn-danger { background: var(--red-pale); color: var(--red-expired); }
@@ -437,15 +437,15 @@ html, body {
   background: rgba(0,0,0,.04);
   border-radius: var(--radius-md);
   overflow: hidden;
-  border: 2px solid var(--green-light);
+  border: 2px solid var(--blue-light);
 }
 
 .scan-line {
   position: absolute;
   left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--green-sage), transparent);
-  box-shadow: 0 0 8px var(--green-sage);
+  background: linear-gradient(90deg, transparent, var(--blue-secondary), transparent);
+  box-shadow: 0 0 8px var(--blue-secondary);
   animation: scanAnim 2s ease-in-out infinite;
 }
 
@@ -459,7 +459,7 @@ html, body {
 .vf-corner {
   position: absolute;
   width: 20px; height: 20px;
-  border-color: var(--green-sage);
+  border-color: var(--blue-secondary);
   border-style: solid;
 }
 
@@ -527,7 +527,7 @@ html, body {
   transform: translateY(-50%);
   width: 16px; height: 16px;
   border: 2px solid var(--cream-darker);
-  border-top-color: var(--green-sage);
+  border-top-color: var(--blue-secondary);
   border-radius: 50%;
   animation: spin .6s linear infinite;
   display: none;
@@ -563,18 +563,18 @@ html, body {
 .add-btn-sm {
   width: 30px; height: 30px;
   border-radius: 50%;
-  background: var(--green-pale);
+  background: var(--blue-pale);
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--green-sage);
+  color: var(--blue-secondary);
   flex-shrink: 0;
   transition: background .15s;
 }
 
-.add-btn-sm:hover { background: var(--green-light); }
+.add-btn-sm:hover { background: var(--blue-light); }
 
 /* ─── DISPENSA ─── */
 .filter-chips {
@@ -599,8 +599,8 @@ html, body {
 }
 
 .filter-chip.active {
-  background: var(--green-deep);
-  border-color: var(--green-deep);
+  background: var(--blue-primary);
+  border-color: var(--blue-primary);
   color: var(--cream);
 }
 
@@ -675,8 +675,8 @@ html, body {
   border-radius: var(--radius-full);
   font-size: 10px;
   font-weight: 700;
-  background: var(--green-pale);
-  color: var(--green-sage);
+  background: var(--blue-pale);
+  color: var(--blue-secondary);
 }
 
 .progress-wrap {
@@ -700,7 +700,7 @@ html, body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--green-sage), var(--green-light));
+  background: linear-gradient(90deg, var(--blue-secondary), var(--blue-light));
   border-radius: var(--radius-full);
   transition: width .4s ease;
 }
@@ -727,8 +727,8 @@ html, body {
 }
 
 .btn-assunto {
-  background: var(--green-pale);
-  color: var(--green-deep);
+  background: var(--blue-pale);
+  color: var(--blue-primary);
   padding: 9px;
   border-radius: var(--radius-sm);
   border: none;
@@ -739,7 +739,7 @@ html, body {
   transition: background .15s;
 }
 
-.btn-assunto:hover { background: var(--green-light); }
+.btn-assunto:hover { background: var(--blue-light); }
 
 .btn-salta {
   background: var(--cream);
@@ -916,7 +916,7 @@ html, body {
   padding: 16px;
   margin: 0 20px;
   box-shadow: var(--shadow-card);
-  border-left: 4px solid var(--green-sage);
+  border-left: 4px solid var(--blue-secondary);
   animation: fadeIn .25s ease;
 }
 
@@ -944,9 +944,9 @@ html, body {
 }
 
 .aic-pill:hover {
-  background: var(--green-pale);
-  border-color: var(--green-light);
-  color: var(--green-sage);
+  background: var(--blue-pale);
+  border-color: var(--blue-light);
+  color: var(--blue-secondary);
 }
 
 /* ─── TOAST ─── */
@@ -954,7 +954,7 @@ html, body {
   position: absolute;
   bottom: 80px;
   left: 16px; right: 16px;
-  background: var(--green-deep);
+  background: var(--blue-primary);
   color: var(--cream);
   padding: 12px 16px;
   border-radius: var(--radius-md);
@@ -988,7 +988,7 @@ html, body {
   padding: 40px 20px;
 }
 
-.empty-state svg { color: var(--green-light); margin-bottom: 12px; }
+.empty-state svg { color: var(--blue-light); margin-bottom: 12px; }
 .empty-state h3 { font-family: var(--font-display); font-size: 17px; color: var(--text-primary); margin-bottom: 6px; }
 .empty-state p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
@@ -1035,7 +1035,7 @@ html, body {
 }
 
 .time-inputs-group input[type=time]:focus {
-  border-color: var(--green-sage);
+  border-color: var(--blue-secondary);
 }
 
 /* ─── RESPONSIVE ─── */
@@ -1197,7 +1197,7 @@ html, body {
 
       <div id="search-results-container">
         <div class="search-hint" id="search-hint">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 8px;display:block;color:var(--green-light)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 8px;display:block;color:var(--blue-light)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           Digita almeno 3 caratteri per<br>iniziare la ricerca nel database
         </div>
         <div id="search-results"></div>
