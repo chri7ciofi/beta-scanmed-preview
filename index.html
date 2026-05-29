@@ -6,7 +6,8 @@
 <title>ScanMed — La tua Farmacia Digitale</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rosario:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+
 <style>
 :root {
   --blue-primary: #1E62EC;
@@ -1062,11 +1063,153 @@ html, body {
   }
   .status-bar { display: none; }
 }
+
+/* ─── DESKTOP DECORATIONS ─── */
+@media (min-width: 431px) {
+  html, body {
+    background: #ffffff;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: relative;
+  }
+  
+  .desktop-bg-wavy {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  
+  .desktop-bg-wavy svg {
+    position: absolute;
+    width: 60%;
+    height: 120%;
+    opacity: 0.75;
+  }
+  
+  .desktop-bg-wavy svg.left-wave {
+    top: -10%;
+    left: -15%;
+    transform: rotate(5deg);
+  }
+  
+  .desktop-bg-wavy svg.right-wave {
+    bottom: -15%;
+    right: -15%;
+    transform: scale(-1);
+  }
+
+  .desktop-side-text {
+    position: fixed;
+    top: 0; bottom: 0;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    z-index: 2;
+    pointer-events: none;
+    padding: 40px;
+    transition: opacity 0.3s ease;
+  }
+
+  .desktop-side-text.left {
+    left: 20px;
+    align-items: flex-start;
+  }
+
+  .desktop-side-text.right {
+    right: 20px;
+    align-items: flex-end;
+  }
+
+  .side-word {
+    font-family: 'Rosario', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 300;
+    color: #1E62EC;
+    letter-spacing: 3px;
+    margin: 16px 0;
+    text-transform: lowercase;
+    opacity: 0.9;
+    position: relative;
+    line-height: 1.1;
+  }
+
+  .side-word::after {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 2px;
+    background: #7BA5F2;
+    margin-top: 8px;
+    opacity: 0.5;
+  }
+
+  .desktop-side-text.right .side-word::after {
+    margin-left: auto;
+  }
+
+  .phone-frame {
+    z-index: 10;
+    position: relative;
+  }
+}
+
+@media (max-width: 1180px) {
+  .desktop-side-text {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .desktop-bg-wavy svg {
+    opacity: 0.35;
+    width: 80%;
+  }
+}
 </style>
+
 </head>
 <body>
 
+<!-- Desktop Wavy Background and Slogans -->
+<div class="desktop-bg-wavy">
+  <!-- Left Waves SVG -->
+  <svg class="left-wave" viewBox="0 0 100 141" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 5,-20 C 5,20 25,30 5,60 C -15,90 15,110 0,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 15,-20 C 15,20 35,30 15,60 C -5,90 25,110 10,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 25,-20 C 25,20 45,30 25,60 C 5,90 35,110 20,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 35,-20 C 35,20 55,30 35,60 C 15,90 45,110 30,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 45,-20 C 45,20 65,30 45,60 C 25,90 55,110 40,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 55,-20 C 55,20 75,30 55,60 C 35,90 65,110 50,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 65,-20 C 65,20 85,30 65,60 C 45,90 75,110 60,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 75,-20 C 75,20 95,30 75,60 C 55,90 85,110 70,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 85,-20 C 85,20 105,30 85,60 C 65,90 95,110 80,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+  </svg>
+  <!-- Right Waves SVG -->
+  <svg class="right-wave" viewBox="0 0 100 141" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 5,-20 C 5,20 25,30 5,60 C -15,90 15,110 0,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 15,-20 C 15,20 35,30 15,60 C -5,90 25,110 10,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 25,-20 C 25,20 45,30 25,60 C 5,90 35,110 20,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 35,-20 C 35,20 55,30 35,60 C 15,90 45,110 30,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 45,-20 C 45,20 65,30 45,60 C 25,90 55,110 40,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 55,-20 C 55,20 75,30 55,60 C 35,90 65,110 50,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 65,-20 C 65,20 85,30 65,60 C 45,90 75,110 60,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 75,-20 C 75,20 95,30 75,60 C 55,90 85,110 70,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+    <path d="M 85,-20 C 85,20 105,30 85,60 C 65,90 95,110 80,150" stroke="rgba(30, 98, 236, 0.16)" stroke-width="0.8" />
+  </svg>
+</div>
+
+<div class="desktop-side-text left">
+  <span class="side-word">scansiona</span>
+  <span class="side-word">gestisci</span>
+</div>
+
+<div class="desktop-side-text right">
+  <span class="side-word">previeni</span>
+</div>
+
 <div class="phone-frame">
+
   <!-- Status Bar -->
   <div class="status-bar">
     <span class="time" id="status-time">09:41</span>
