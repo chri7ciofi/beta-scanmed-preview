@@ -62,9 +62,24 @@ Everything is in one file, structured top-to-bottom:
 - Phone frame (390×844px) is stripped at `@media (max-width: 430px)` for real mobile
 - Modals are bottom-sheets by default; the safety alert uses `.modal-overlay.center` for a centered dialog
 
+## PWA layer
+
+Three files alongside `index.html`:
+
+| File | Purpose |
+| ---- | ------- |
+| `manifest.json` | App identity, `display: standalone`, `start_url: "./"` (relative — required for GitHub Pages subpath) |
+| `sw.js` | Cache strategies: network-only for Supabase, stale-while-revalidate for Google Fonts, cache-first for CDN polyfills + app shell |
+| `icons/icon.svg` / `icons/icon-maskable.svg` | White medical cross on `#1E62EC`; maskable variant has no `rx` (full-bleed safe-zone) |
+
+SW registration fires in `DOMContentLoaded` only when `location.protocol !== 'file:'` — opening directly as a local file skips SW (it would fail anyway).
+
+**Deployment**: GitHub Pages at `https://chri7ciofi.github.io/beta-scanmed-preview/` provides the HTTPS context required for `navigator.mediaDevices`.
+
 ## Scanner (camera + barcode decoding)
 
-- **No native `BarcodeDetector` on Windows/Linux desktop Chrome/Edge** — the Shape Detection API ships only on Android/macOS/ChromeOS. `cameraSupported()` therefore gates the camera button on `getUserMedia` alone, and `ensureBarcodeDetector()` lazily `import()`s the `barcode-detector` polyfill (zxing-wasm) from jsDelivr when the native API is absent. Dynamic `import()` runs inside the existing classic `<script>` — do **not** introduce a build step or `<script type="module">` to support it.
+- **No native `BarcodeDetector` on Windows/Linux desktop Chrome/Edge** — the Shape Detection API ships only on Android/macOS/ChromeOS. The camera button is **always rendered** (no `cameraSupported()` display guard). `ensureBarcodeDetector()` lazily `import()`s the `barcode-detector` polyfill (zxing-wasm) from jsDelivr when the native API is absent. Dynamic `import()` runs inside the existing classic `<script>` — do **not** introduce a build step or `<script type="module">` to support it.
+- **Secure context required**: `startCamera()` checks `navigator.mediaDevices` upfront and shows an Italian error message if it's absent (HTTP context). The button is always visible so users on non-HTTPS see the message rather than a missing button.
 - `handleScan()` routes by `code.format`: `data_matrix` → `parseGS1()` (AIC + prefill expiry/lotto); `ean_13` → `extractAIC()`.
 - **GS1 parsing** (`parseGS1`) walks Application Identifiers from the string start — never `indexOf`, which false-matches digits inside the GTIN/AIC. AI `01` GTIN-14, AI `17` expiry `YYMMDD` (if `DD==='00'` → `28`), AI `10` lotto. Italian NTIN GTIN-13 = `080` + 9-digit AIC + check digit, so `extractAIC()` slices the AIC out of the GTIN.
 - Camera stream is released in `navigate()` when leaving the scanner screen — preserve this to free the device.
