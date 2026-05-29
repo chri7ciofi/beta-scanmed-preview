@@ -7,6 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rosario:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1E62EC">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ScanMed">
+<link rel="apple-touch-icon" href="icons/icon.svg">
 
 <style>
 :root {
@@ -2142,6 +2149,10 @@ function setScanStatus(msg) {
 
 async function startCamera() {
   if (scanStream) return;
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    setScanStatus('La fotocamera richiede una connessione sicura (HTTPS). Usa l\'inserimento manuale o accedi tramite un server HTTPS.');
+    return;
+  }
   const video = document.getElementById('scan-video');
   try {
     scanDetector = scanDetector || await ensureBarcodeDetector();
@@ -2225,16 +2236,12 @@ function renderScanResult(farmaco) {
 }
 
 function initScanner() {
-  // Live camera scan — only surfaced where BarcodeDetector + camera are available.
-  // Elsewhere (e.g. desktop Firefox/Safari) the demo pills + manual entry remain.
   const camBtn = document.getElementById('btn-toggle-camera');
-  if (cameraSupported()) {
-    camBtn.style.display = 'block';
-    camBtn.addEventListener('click', () => {
-      if (scanStream) { stopCamera(); setScanStatus(''); }
-      else startCamera();
-    });
-  }
+  camBtn.style.display = 'block';
+  camBtn.addEventListener('click', () => {
+    if (scanStream) { stopCamera(); setScanStatus(''); }
+    else startCamera();
+  });
 
   // Demo pills
   document.querySelectorAll('.aic-pill').forEach(pill => {
@@ -2473,6 +2480,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initModals();
 
   navigate('home');
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 });
 </script>
 </body>

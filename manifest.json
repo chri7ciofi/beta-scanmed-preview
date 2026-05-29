@@ -1,0 +1,26 @@
+{
+  "name": "ScanMed",
+  "short_name": "ScanMed",
+  "description": "La tua Farmacia Digitale — gestisci farmaci, scadenze e cicli terapeutici",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F5F0E8",
+  "theme_color": "#1E62EC",
+  "orientation": "portrait",
+  "lang": "it",
+  "categories": ["health", "medical", "lifestyle"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
