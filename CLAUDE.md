@@ -16,29 +16,29 @@ Everything is in one file, structured top-to-bottom:
 2. **`<body>`** — static HTML skeleton: phone frame → 5 screen divs → bottom nav → 3 modal overlays → toast div
 3. **`<script>`** — vanilla JS, no modules, organized into labelled sections:
 
-| Section | Responsibility |
-|---|---|
-| Config | `SB_URL`, `SB_KEY`, `LS_KEY` constants |
-| State | Single `state` object (current screen, dispensa[], cicli[], pending modal data) |
-| Utils | `uid()`, `today()`, `getExpiryStatus()`, `daysUntilExpiry()`, `showToast()` |
-| Mock data | `seedMockData()` — runs once on first load if `localStorage` key absent |
-| Persistence | `loadState()` / `saveState()` — reads/writes `localStorage` key `scanmed_v1` |
-| Supabase | `fetchByAIC(aic)` · `searchFarmaci(query)` — raw `fetch()` to PostgREST REST API |
-| Router | `navigate(screenId)` — shows/hides `.screen` divs, calls per-screen `render*()` |
-| Home | `renderHome()` |
-| Dispensa | `renderDispensa()`, `addToDispensa()`, `removeFromDispensa()`, `checkDuplicatePrincipio()` |
-| Safety | `showSafetyAlert()` — blocking modal for duplicate `principio_attivo` |
-| Scanner | `initScanner()`, `renderScanResult()` |
-| Search | `initSearch()` — 300ms debounce, min 3 chars |
-| Cicli | `renderCure()`, `logDose()`, `adherencePercent()` |
-| Modals | `openModal()` / `closeModal()` + all modal button wiring |
-| Init | `DOMContentLoaded` — calls `loadState()`, `navigate('home')`, all `init*()` |
+| Section     | Responsibility                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Config      | `SB_URL`, `SB_KEY`, `LS_KEY` constants                                                     |
+| State       | Single `state` object (current screen, dispensa[], cicli[], pending modal data)            |
+| Utils       | `uid()`, `today()`, `getExpiryStatus()`, `daysUntilExpiry()`, `showToast()`                |
+| Mock data   | `seedMockData()` — runs once on first load if `localStorage` key absent                    |
+| Persistence | `loadState()` / `saveState()` — reads/writes `localStorage` key `scanmed_v1`               |
+| Supabase    | `fetchByAIC(aic)` · `searchFarmaci(query)` — raw `fetch()` to PostgREST REST API           |
+| Router      | `navigate(screenId)` — shows/hides `.screen` divs, calls per-screen `render*()`            |
+| Home        | `renderHome()`                                                                             |
+| Dispensa    | `renderDispensa()`, `addToDispensa()`, `removeFromDispensa()`, `checkDuplicatePrincipio()` |
+| Safety      | `showSafetyAlert()` — blocking modal for duplicate `principio_attivo`                      |
+| Scanner     | `initScanner()`, `renderScanResult()` · live camera: `cameraSupported()`, `ensureBarcodeDetector()`, `startCamera()`/`stopCamera()`, `scanLoop()`, `handleScan()` · parsing: `extractAIC()`, `parseGS1()` |
+| Search      | `initSearch()` — 300ms debounce, min 3 chars                                               |
+| Cicli       | `renderCure()`, `logDose()`, `adherencePercent()`                                          |
+| Modals      | `openModal()` / `closeModal()` + all modal button wiring                                   |
+| Init        | `DOMContentLoaded` — calls `loadState()`, `navigate('home')`, all `init*()`                |
 
 ## Data model (localStorage `scanmed_v1`)
 
 ```json
 {
-  "dispensa": [{ "id", "codice_aic", "nome_commerciale", "principio_attivo", "confezione", "data_scadenza", "quantita" }],
+  "dispensa": [{ "id", "codice_aic", "nome_commerciale", "principio_attivo", "confezione", "data_scadenza", "quantita", "lotto" }],
   "cicli":    [{ "id", "farmaco_id", "nome", "orari", "data_inizio", "data_fine", "log": [{ "data", "stato" }] }]
 }
 ```
@@ -61,6 +61,13 @@ Everything is in one file, structured top-to-bottom:
 - Expiry status drives CSS class (`safe` / `warning` / `expired`) on `.drug-card` and `.chip` — colors cascade from those classes
 - Phone frame (390×844px) is stripped at `@media (max-width: 430px)` for real mobile
 - Modals are bottom-sheets by default; the safety alert uses `.modal-overlay.center` for a centered dialog
+
+## Scanner (camera + barcode decoding)
+
+- **No native `BarcodeDetector` on Windows/Linux desktop Chrome/Edge** — the Shape Detection API ships only on Android/macOS/ChromeOS. `cameraSupported()` therefore gates the camera button on `getUserMedia` alone, and `ensureBarcodeDetector()` lazily `import()`s the `barcode-detector` polyfill (zxing-wasm) from jsDelivr when the native API is absent. Dynamic `import()` runs inside the existing classic `<script>` — do **not** introduce a build step or `<script type="module">` to support it.
+- `handleScan()` routes by `code.format`: `data_matrix` → `parseGS1()` (AIC + prefill expiry/lotto); `ean_13` → `extractAIC()`.
+- **GS1 parsing** (`parseGS1`) walks Application Identifiers from the string start — never `indexOf`, which false-matches digits inside the GTIN/AIC. AI `01` GTIN-14, AI `17` expiry `YYMMDD` (if `DD==='00'` → `28`), AI `10` lotto. Italian NTIN GTIN-13 = `080` + 9-digit AIC + check digit, so `extractAIC()` slices the AIC out of the GTIN.
+- Camera stream is released in `navigate()` when leaving the scanner screen — preserve this to free the device.
 
 ## Key behaviours to preserve
 

@@ -477,6 +477,20 @@ html, body {
   color: rgba(74,124,89,.3);
 }
 
+#scan-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
+/* When the live camera is running, reveal the feed and dim the placeholder icon */
+.viewfinder.scanning #scan-video { display: block; }
+.viewfinder.scanning .vf-center-icon { display: none; }
+.viewfinder.scanning { border-color: var(--blue-primary); }
+
 .scan-hint {
   font-size: 12px;
   color: var(--text-muted);
@@ -1128,7 +1142,8 @@ html, body {
       </div>
 
       <div class="scanner-wrap">
-        <div class="viewfinder">
+        <div class="viewfinder" id="viewfinder">
+          <video id="scan-video" playsinline muted></video>
           <div class="scan-line"></div>
           <div class="vf-corner vf-tl"></div>
           <div class="vf-corner vf-tr"></div>
@@ -1146,7 +1161,13 @@ html, body {
 
         <p class="scan-hint">Inquadra il barcode EAN-13 o GS1 DataMatrix</p>
 
-        <p style="font-size:11px;color:var(--text-muted);margin-top:-6px;">Demo: seleziona un farmaco da scansionare</p>
+        <!-- Live camera scan (shown only where BarcodeDetector + camera are available) -->
+        <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
+          Attiva fotocamera
+        </button>
+        <p id="scan-status" style="font-size:11px;color:var(--text-muted);margin-top:-6px;display:none;"></p>
+
+        <p id="demo-hint" style="font-size:11px;color:var(--text-muted);margin-top:-6px;">Demo: seleziona un farmaco da scansionare</p>
 
         <div class="demo-aic-list">
           <button class="aic-pill" data-aic="012745093" data-name="TACHIPIRINA">TACHIPIRINA</button>
@@ -1309,6 +1330,11 @@ html, body {
       <div class="form-group">
         <label class="form-label">QUANTITÀ (es. numero compresse)</label>
         <input type="number" id="modal-qty" class="input-field" placeholder="es. 20" min="1" max="999">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">LOTTO (opzionale)</label>
+        <input type="text" id="modal-lotto" class="input-field" placeholder="es. AB1234" maxlength="32">
       </div>
 
       <div class="modal-actions">
@@ -1603,6 +1629,8 @@ function navigate(screenId) {
   });
   const scr = document.getElementById(`screen-${screenId}`);
   if (!scr) return;
+  // Release the camera when navigating away from the scanner screen
+  if (state.currentScreen === 'scanner' && screenId !== 'scanner') stopCamera();
   scr.classList.add('active');
   state.currentScreen = screenId;
   if (screenId === 'home')     renderHome();
@@ -1707,6 +1735,7 @@ function renderDispensa() {
         <span class="chip ${status}">${chipIcon(status)} ${expiryLabel(d.data_scadenza)}</span>
         <span class="qty-badge">📦 ${d.quantita} unità</span>
         <span style="font-size:11px;color:var(--text-muted);">${formatDate(d.data_scadenza)}</span>
+        ${d.lotto ? `<span style="font-size:11px;color:var(--text-muted);">Lotto ${d.lotto}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1730,11 +1759,11 @@ function checkDuplicatePrincipio(principio_attivo) {
   ) || null;
 }
 
-function addToDispensa(farmaco, data_scadenza, quantita, skipSafetyCheck = false) {
+function addToDispensa(farmaco, data_scadenza, quantita, lotto = '', skipSafetyCheck = false) {
   if (!skipSafetyCheck) {
     const conflict = checkDuplicatePrincipio(farmaco.principio_attivo);
     if (conflict) {
-      state.safetyCallback = () => addToDispensa(farmaco, data_scadenza, quantita, true);
+      state.safetyCallback = () => addToDispensa(farmaco, data_scadenza, quantita, lotto, true);
       showSafetyAlert(conflict, farmaco);
       closeModal('modal-add-drug');
       return;
@@ -1747,7 +1776,8 @@ function addToDispensa(farmaco, data_scadenza, quantita, skipSafetyCheck = false
     principio_attivo: farmaco.principio_attivo,
     confezione: farmaco.confezione || '',
     data_scadenza,
-    quantita: parseInt(quantita) || 1
+    quantita: parseInt(quantita) || 1,
+    lotto: lotto || ''
   };
   state.dispensa.push(entry);
   saveState();
@@ -1879,16 +1909,164 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('active');
 }
 
-function openAddDrugModal(farmaco) {
+function openAddDrugModal(farmaco, prefill = {}) {
   state.pendingAddFarmaco = farmaco;
   document.getElementById('modal-dp-name').textContent      = farmaco.nome_commerciale;
   document.getElementById('modal-dp-principio').textContent = farmaco.principio_attivo;
   document.getElementById('modal-add-drug-subtitle').textContent = farmaco.confezione || '';
   const todayStr = today();
-  document.getElementById('modal-scadenza').value = '';
+  // Prefill expiry/lotto when they arrive from a GS1 DataMatrix scan (SCANNER.md §3.2)
+  document.getElementById('modal-scadenza').value = prefill.scadenza || '';
   document.getElementById('modal-scadenza').min   = todayStr;
   document.getElementById('modal-qty').value      = '';
+  document.getElementById('modal-lotto').value    = prefill.lotto || '';
   openModal('modal-add-drug');
+}
+
+// ─── GS1 / AIC PARSING (SCANNER.md §3) ──────────────────────────────────────────
+// Italian medicine NTIN: GTIN-13 = "080" + 9-digit AIC + check digit. A scanned
+// EAN-13 / GTIN carries the AIC inside; manual entry is the bare 9-digit AIC.
+function extractAIC(raw) {
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length >= 13) {
+    const g13 = digits.slice(-13);            // drop any GTIN-14 leading pad
+    return g13.slice(3, 12).padStart(9, '0'); // strip "080" prefix + trailing check digit
+  }
+  return digits.padStart(9, '0');             // §3.1 left-pad short/manual codes
+}
+
+// Parse a GS1 DataMatrix payload into { aic, expiry, lotto }. Walks Application
+// Identifiers from the start (not indexOf — avoids false matches on digits inside
+// the GTIN/AIC). Tolerates FNC1 (\x1d) and "()" AI separators.
+function parseGS1(raw) {
+  const s = String(raw).replace(/[()]/g, '');
+  let aic = '', expiry = '', lotto = '', i = 0;
+  while (i < s.length) {
+    if (s[i] === '\x1d') { i++; continue; }   // group separator
+    const ai = s.substr(i, 2);
+    if (ai === '01') {                          // GTIN-14 (fixed 14 digits)
+      aic = extractAIC(s.substr(i + 2, 14));
+      i += 16;
+    } else if (ai === '17') {                   // expiry YYMMDD (fixed 6 digits)
+      const ymd = s.substr(i + 2, 6);
+      let dd = ymd.slice(4, 6);
+      if (dd === '00') dd = '28';               // §3.2 fallback
+      expiry = `20${ymd.slice(0, 2)}-${ymd.slice(2, 4)}-${dd}`;
+      i += 8;
+    } else if (ai === '10' || ai === '21') {    // lotto / serial (variable length)
+      let j = i + 2;
+      while (j < s.length && s[j] !== '\x1d') j++;
+      if (ai === '10') lotto = s.substring(i + 2, j);
+      i = j;
+    } else {
+      break;                                    // unknown AI — stop to avoid misparsing
+    }
+  }
+  return { aic, expiry, lotto };
+}
+
+// ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
+let scanStream = null;     // active MediaStream
+let scanDetector = null;   // reused BarcodeDetector instance
+let scanRAF = null;        // requestAnimationFrame handle
+let scanBusy = false;      // guards against handling the same code twice
+
+// Camera capture needs getUserMedia; barcode decoding needs BarcodeDetector.
+// The latter ships only on Android/macOS/ChromeOS — NOT desktop Chrome/Edge on
+// Windows/Linux — so we polyfill it on demand (see ensureBarcodeDetector). The
+// button is therefore offered wherever a camera is reachable.
+function cameraSupported() {
+  return !!(navigator.mediaDevices
+    && typeof navigator.mediaDevices.getUserMedia === 'function');
+}
+
+// Resolve a BarcodeDetector, loading the zxing-wasm polyfill if the browser
+// lacks the native Shape Detection API. Throws if the polyfill can't be fetched
+// (e.g. offline) so the caller can fall back to manual entry.
+async function ensureBarcodeDetector() {
+  if (!('BarcodeDetector' in window)) {
+    setScanStatus('Caricamento decoder…');
+    await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
+  }
+  return new BarcodeDetector({ formats: ['ean_13', 'data_matrix'] });
+}
+
+function setScanStatus(msg) {
+  const el = document.getElementById('scan-status');
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+async function startCamera() {
+  if (scanStream) return;
+  const video = document.getElementById('scan-video');
+  try {
+    scanDetector = scanDetector || await ensureBarcodeDetector();
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = scanStream;
+    await video.play();
+    document.getElementById('viewfinder').classList.add('scanning');
+    document.getElementById('btn-toggle-camera').textContent = 'Ferma fotocamera';
+    setScanStatus('Scansione in corso… inquadra il codice');
+    scanBusy = false;
+    scanLoop();
+  } catch (err) {
+    stopCamera();
+    const denied = err && (err.name === 'NotAllowedError' || err.name === 'NotFoundError');
+    setScanStatus(denied
+      ? 'Fotocamera non disponibile o permesso negato. Usa l’inserimento manuale.'
+      : 'Impossibile avviare lo scanner (decoder non caricato). Usa l’inserimento manuale.');
+  }
+}
+
+function stopCamera() {
+  if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const video = document.getElementById('scan-video');
+  if (video) video.srcObject = null;
+  const vf = document.getElementById('viewfinder');
+  if (vf) vf.classList.remove('scanning');
+  const btn = document.getElementById('btn-toggle-camera');
+  if (btn) btn.textContent = 'Attiva fotocamera';
+}
+
+async function scanLoop() {
+  const video = document.getElementById('scan-video');
+  if (!scanStream || !video) return;
+  try {
+    const codes = await scanDetector.detect(video);
+    if (codes && codes.length && !scanBusy) {
+      scanBusy = true;
+      await handleScan(codes[0]);
+      return; // handleScan stops the camera; do not re-queue the loop
+    }
+  } catch (e) { /* transient detect error — keep looping */ }
+  scanRAF = requestAnimationFrame(scanLoop);
+}
+
+// Route a detected barcode: EAN-13 → AIC; GS1 DataMatrix → AIC + expiry + lotto.
+async function handleScan(code) {
+  const raw = code.rawValue || '';
+  let aic = '', prefill = {};
+  if (code.format === 'data_matrix') {
+    const parsed = parseGS1(raw);
+    aic = parsed.aic;
+    prefill = { scadenza: parsed.expiry, lotto: parsed.lotto };
+  } else {
+    aic = extractAIC(raw); // ean_13
+  }
+  stopCamera();
+  if (!aic) { showToast('Codice non riconosciuto', 'warning'); return; }
+  setScanStatus('Ricerca farmaco…');
+  const farmaco = await fetchByAIC(aic);
+  setScanStatus('');
+  if (farmaco) {
+    renderScanResult(farmaco);
+    openAddDrugModal(farmaco, prefill);
+  } else {
+    showToast(`Nessun farmaco trovato per AIC: ${aic}`, 'warning');
+    document.getElementById('aic-input').value = aic;
+  }
 }
 
 // ─── SCANNER ──────────────────────────────────────────────────────────────────
@@ -1904,6 +2082,17 @@ function renderScanResult(farmaco) {
 }
 
 function initScanner() {
+  // Live camera scan — only surfaced where BarcodeDetector + camera are available.
+  // Elsewhere (e.g. desktop Firefox/Safari) the demo pills + manual entry remain.
+  const camBtn = document.getElementById('btn-toggle-camera');
+  if (cameraSupported()) {
+    camBtn.style.display = 'block';
+    camBtn.addEventListener('click', () => {
+      if (scanStream) { stopCamera(); setScanStatus(''); }
+      else startCamera();
+    });
+  }
+
   // Demo pills
   document.querySelectorAll('.aic-pill').forEach(pill => {
     pill.addEventListener('click', async () => {
@@ -2007,11 +2196,12 @@ function initModals() {
     const farmaco   = state.pendingAddFarmaco;
     const scadenza  = document.getElementById('modal-scadenza').value;
     const qty       = document.getElementById('modal-qty').value;
+    const lotto     = document.getElementById('modal-lotto').value.trim();
     if (!farmaco)  { showToast('Errore: nessun farmaco selezionato', 'warning'); return; }
     if (!scadenza) { showToast('Inserisci la data di scadenza', 'warning'); return; }
     if (!qty || parseInt(qty) < 1) { showToast('Inserisci una quantità valida', 'warning'); return; }
     closeModal('modal-add-drug');
-    addToDispensa(farmaco, scadenza, qty);
+    addToDispensa(farmaco, scadenza, qty, lotto);
   });
 
   document.getElementById('btn-cancel-add-drug').addEventListener('click', () => {
