@@ -2116,7 +2116,10 @@ function parseGS1(raw) {
       if (ai === '10') lotto = s.substring(i + 2, j);
       i = j;
     } else {
-      break;                                    // unknown AI — stop to avoid misparsing
+      // Unknown AI — skip to next FNC1 separator or end to preserve already-parsed fields
+      let j = i + 2;
+      while (j < s.length && s[j] !== '\x1d') j++;
+      i = j;
     }
   }
   return { aic, expiry, lotto };
@@ -2137,14 +2140,21 @@ function cameraSupported() {
     && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-// Resolve a BarcodeDetector, loading the zxing-wasm polyfill if the browser
-// lacks the native Shape Detection API. Throws if the polyfill can't be fetched
-// (e.g. offline) so the caller can fall back to manual entry.
+// Resolve a BarcodeDetector that supports data_matrix. The native API on some
+// Android devices exists but omits data_matrix from getSupportedFormats(); in
+// that case (and when the API is absent altogether) we load the zxing-wasm
+// polyfill on demand. Throws if the polyfill can't be fetched (e.g. offline).
 async function ensureBarcodeDetector() {
-  if (!('BarcodeDetector' in window)) {
-    setScanStatus('Caricamento decoder…');
-    await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
+  if ('BarcodeDetector' in window) {
+    try {
+      const supported = await BarcodeDetector.getSupportedFormats();
+      if (supported.includes('data_matrix')) {
+        return new BarcodeDetector({ formats: ['ean_13', 'data_matrix'] });
+      }
+    } catch (_) {}
   }
+  setScanStatus('Caricamento decoder…');
+  await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
   return new BarcodeDetector({ formats: ['ean_13', 'data_matrix'] });
 }
 
@@ -2193,15 +2203,20 @@ function stopCamera() {
 
 async function scanLoop() {
   const video = document.getElementById('scan-video');
-  if (!scanStream || !video) return;
+  if (!scanStream || !video || video.readyState < 2 || !video.videoWidth) {
+    scanRAF = requestAnimationFrame(scanLoop);
+    return;
+  }
   try {
-    const codes = await scanDetector.detect(video);
+    const bitmap = await createImageBitmap(video);
+    const codes = await scanDetector.detect(bitmap);
+    bitmap.close();
     if (codes && codes.length && !scanBusy) {
       scanBusy = true;
       await handleScan(codes[0]);
       return; // handleScan stops the camera; do not re-queue the loop
     }
-  } catch (e) { /* transient detect error — keep looping */ }
+  } catch (e) { console.warn('[ScanMed] scan detect error:', e); }
   scanRAF = requestAnimationFrame(scanLoop);
 }
 
