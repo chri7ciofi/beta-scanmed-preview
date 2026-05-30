@@ -1316,7 +1316,7 @@ html, body {
           </div>
         </div>
 
-        <p class="scan-hint">Inquadra il barcode EAN-13 o GS1 DataMatrix</p>
+        <p class="scan-hint">Centra il DataMatrix nel mirino e tieni fermo: attendi la messa a fuoco</p>
 
         <!-- Live camera scan (shown only where BarcodeDetector + camera are available) -->
         <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
@@ -2150,13 +2150,13 @@ async function ensureBarcodeDetector() {
     try {
       const supported = await BarcodeDetector.getSupportedFormats();
       if (supported.includes('data_matrix')) {
-        return new BarcodeDetector({ formats: ['ean_13', 'data_matrix'] });
+        return new BarcodeDetector({ formats: ['data_matrix'] });
       }
     } catch (_) {}
   }
   setScanStatus('Caricamento decoder…');
   await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
-  return new BarcodeDetector({ formats: ['ean_13', 'data_matrix'] });
+  return new BarcodeDetector({ formats: ['data_matrix'] });
 }
 
 function setScanStatus(msg) {
@@ -2174,9 +2174,27 @@ async function startCamera() {
   const video = document.getElementById('scan-video');
   try {
     scanDetector = scanDetector || await ensureBarcodeDetector();
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    // High-resolution + continuous autofocus: pharma DataMatrix modules are sub-millimetre,
+    // so we need dense pixels and a sharp focus. ideal (not exact) degrades gracefully on
+    // devices that can't deliver Full HD (no OverconstrainedError).
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+        advanced: [{ focusMode: 'continuous' }, { whiteBalanceMode: 'continuous' }],
+      },
+      audio: false,
+    });
     video.srcObject = scanStream;
     await video.play();
+    // Some Android browsers honour focusMode only via applyConstraints, not initial constraints.
+    try {
+      const track = scanStream.getVideoTracks()[0];
+      if (track && track.applyConstraints) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+    } catch (_) { /* focus not controllable: non-blocking */ }
     document.getElementById('viewfinder').classList.add('scanning');
     document.getElementById('btn-toggle-camera').textContent = 'Ferma fotocamera';
     setScanStatus('Scansione in corso… inquadra il codice');
