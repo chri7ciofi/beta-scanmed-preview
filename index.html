@@ -1060,8 +1060,14 @@ html, body {
   border-color: var(--blue-secondary);
 }
 
+/* ─── DESKTOP ELEMENTS HIDE BY DEFAULT ─── */
+.desktop-bg-wavy,
+.desktop-side-text {
+  display: none;
+}
+
 /* ─── RESPONSIVE ─── */
-@media (max-width: 430px) {
+@media (max-width: 768px) {
   html, body { background: var(--cream); }
   .phone-frame {
     width: 100%; height: 100%;
@@ -1072,7 +1078,7 @@ html, body {
 }
 
 /* ─── DESKTOP DECORATIONS ─── */
-@media (min-width: 431px) {
+@media (min-width: 769px) {
   html, body {
     background: #ffffff;
     overflow-x: hidden;
@@ -1081,6 +1087,7 @@ html, body {
   }
   
   .desktop-bg-wavy {
+    display: block;
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     pointer-events: none;
