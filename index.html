@@ -2096,7 +2096,8 @@ function extractAIC(raw) {
 // Identifiers from the start (not indexOf — avoids false matches on digits inside
 // the GTIN/AIC). Tolerates FNC1 (\x1d) and "()" AI separators.
 function parseGS1(raw) {
-  const s = String(raw).replace(/[()]/g, '');
+  // Normalize to standard GS1 group separator \x1d; some decoders emit \x04 or \x1c instead
+  const s = String(raw).replace(/[()]/g, '').replace(/[\x04\x1c]/g, '\x1d');
   let aic = '', expiry = '', lotto = '', i = 0;
   while (i < s.length) {
     if (s[i] === '\x1d') { i++; continue; }   // group separator
@@ -2223,11 +2224,14 @@ async function scanLoop() {
 // Route a detected barcode: EAN-13 → AIC; GS1 DataMatrix → AIC + expiry + lotto.
 async function handleScan(code) {
   const raw = code.rawValue || '';
+  console.log('[ScanMed] detected format:', code.format, '| raw:', JSON.stringify(raw));
   let aic = '', prefill = {};
-  if (code.format === 'data_matrix') {
+  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
     const parsed = parseGS1(raw);
     aic = parsed.aic;
     prefill = { scadenza: parsed.expiry, lotto: parsed.lotto };
+    // Fallback for DataMatrix that encodes AIC digits directly (non-GS1)
+    if (!aic) aic = extractAIC(raw);
   } else {
     aic = extractAIC(raw); // ean_13
   }
