@@ -2081,15 +2081,23 @@ function openAddDrugModal(farmaco, prefill = {}) {
 }
 
 // ─── GS1 / AIC PARSING (SCANNER.md §3) ──────────────────────────────────────────
-// Italian medicine NTIN: GTIN-13 = "080" + 9-digit AIC + check digit. A scanned
-// EAN-13 / GTIN carries the AIC inside; manual entry is the bare 9-digit AIC.
+// The ONLY mandatory field is the 9-digit AIC. extractAIC() is the single
+// normalization point: it converges every code source on a valid AIC.
+//   • NTIN GTIN-13 = "080" + 9-digit AIC + check digit (Italian pharma EAN-13 /
+//     GS1 AI 01 GTIN-14). Detected strictly by the "080" prefix → slice [3:12].
+//   • Old IPZS bollino (non-GS1 DataMatrix) = AIC(9) + serial → AIC is the
+//     LEADING 9 digits (never an "080" GTIN); take slice(0,9).
+//   • Bare/manual entry = ≤9 digits → left-pad to 9.
+// Returns '' only when there are no digits at all (true "codice non riconosciuto").
 function extractAIC(raw) {
-  const digits = String(raw).replace(/\D/g, '');
-  if (digits.length >= 13) {
-    const g13 = digits.slice(-13);            // drop any GTIN-14 leading pad
-    return g13.slice(3, 12).padStart(9, '0'); // strip "080" prefix + trailing check digit
+  const d = String(raw).replace(/\D/g, '');
+  if (!d) return '';
+  const g13 = d.length >= 14 ? d.slice(-13) : d;   // GTIN-14 → keep trailing GTIN-13
+  if (g13.length === 13 && g13.startsWith('080')) {
+    return g13.slice(3, 12);                        // NTIN-GTIN: strip "080" + check digit
   }
-  return digits.padStart(9, '0');             // §3.1 left-pad short/manual codes
+  if (d.length <= 9) return d.padStart(9, '0');     // bare/manual AIC
+  return d.slice(0, 9);                             // IPZS-leading9: old bollino, drop serial
 }
 
 // Parse a GS1 DataMatrix payload into { aic, expiry, lotto }. Walks Application
@@ -2141,22 +2149,30 @@ function cameraSupported() {
     && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-// Resolve a BarcodeDetector that supports data_matrix. The native API on some
-// Android devices exists but omits data_matrix from getSupportedFormats(); in
-// that case (and when the API is absent altogether) we load the zxing-wasm
-// polyfill on demand. Throws if the polyfill can't be fetched (e.g. offline).
+// Formats we scan: GS1 DataMatrix (new bollini), plus linear EAN-13 / Code128
+// (NTIN pharma codes + old bollini). AIC-first: handleScan converges all of
+// them on a 9-digit AIC (see extractAIC / parseGS1).
+const SCAN_FORMATS = ['data_matrix', 'ean_13', 'code_128'];
+
+// Resolve a BarcodeDetector for SCAN_FORMATS. The native API on some Android
+// devices exists but omits data_matrix from getSupportedFormats(); in that case
+// (and when the API is absent altogether) we load the zxing-wasm polyfill on
+// demand. Throws if the polyfill can't be fetched (e.g. offline).
 async function ensureBarcodeDetector() {
   if ('BarcodeDetector' in window) {
     try {
       const supported = await BarcodeDetector.getSupportedFormats();
       if (supported.includes('data_matrix')) {
-        return new BarcodeDetector({ formats: ['data_matrix'] });
+        // Intersect with what the native engine actually supports so an
+        // unsupported format never breaks construction.
+        const formats = SCAN_FORMATS.filter(f => supported.includes(f));
+        return new BarcodeDetector({ formats });
       }
     } catch (_) {}
   }
   setScanStatus('Caricamento decoder…');
   await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
-  return new BarcodeDetector({ formats: ['data_matrix'] });
+  return new BarcodeDetector({ formats: SCAN_FORMATS });
 }
 
 function setScanStatus(msg) {
@@ -2243,16 +2259,19 @@ async function scanLoop() {
 async function handleScan(code) {
   const raw = code.rawValue || '';
   console.log('[ScanMed] detected format:', code.format, '| raw:', JSON.stringify(raw));
-  let aic = '', prefill = {};
+  let aic = '', prefill = {}, strategy = '';
   if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
     const parsed = parseGS1(raw);
     aic = parsed.aic;
     prefill = { scadenza: parsed.expiry, lotto: parsed.lotto };
-    // Fallback for DataMatrix that encodes AIC digits directly (non-GS1)
-    if (!aic) aic = extractAIC(raw);
+    strategy = 'GS1-DataMatrix';
+    // Fallback for DataMatrix that encodes AIC digits directly (non-GS1 / old IPZS bollino)
+    if (!aic) { aic = extractAIC(raw); strategy = 'DataMatrix-extractAIC'; }
   } else {
-    aic = extractAIC(raw); // ean_13
+    aic = extractAIC(raw); // ean_13 / code_128 linear
+    strategy = 'linear-extractAIC';
   }
+  console.log('[ScanMed] strategy:', strategy, '| AIC:', aic || '(none)');
   stopCamera();
   if (!aic) { showToast('Codice non riconosciuto', 'warning'); return; }
   setScanStatus('Ricerca farmaco…');

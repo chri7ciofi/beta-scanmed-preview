@@ -1,140 +1,194 @@
-# Piano di Adeguamento Scanner: Ottimizzazione DataMatrix
+# Istruzioni di Sviluppo: Strategia Unificata di Estrazione AIC per Scanner (EAN-13 / DataMatrix)
 
-Questo documento funge da prompt strutturato e set di istruzioni per un agente AI incaricato di modificare il codice di scansione nel file `index.html` (o moduli associati) per risolvere il problema del "codice non riconosciuto" e ottimizzare la lettura dei codici DataMatrix farmaceutici.
-
----
-
-## Obiettivo Corrente
-
-Configurare la fotocamera mobile e la logica di decodifica per leggere in modo estremamente affidabile e stabile i codici DataMatrix GS1 (molto piccoli e ad alta densità) stampati sulle confezioni dei farmaci, eliminando i falsi positivi o letture parziali causati da altri formati di codici a barre.
+Questo documento funge da specifica tecnica e prompt strutturato per l'agente AI (es. Cursor, Antigravity, Claude Code) per riprogettare e semplificare la logica di scansione nel file `index.html`.
 
 ---
 
-# Istruzioni Operative per l'Agente AI
+# 🎯 Filosofia del Sistema & Obiettivo Centrale
 
-## 1. Isolare e Configurare la Fotocamera (`startCamera` / `getUserMedia`)
+L'applicazione deve cambiare approccio: **l'unico dato critico e obbligatorio da estrarre da qualsiasi tipo di scansione è il codice AIC (codice di targatura ministeriale a 9 cifre)**.
 
-Trova il punto nel codice in cui viene inizializzato lo stream video (`navigator.mediaDevices.getUserMedia`) e aggiorna i vincoli (`constraints`) hardware. I moduli millimetrici del DataMatrix richiedono un'alta densità di pixel e una messa a fuoco precisa.
+Lo scanner deve essere in grado di leggere correttamente:
 
-### Requisiti
+- i nuovi bollini europei **GS1 DataMatrix**
+- i vecchi bollini farmaceutici italiani
+- i codici lineari EAN-13 presenti sulle confezioni
 
-- **Risoluzione Video:**  
-  Forza una risoluzione ideale Full HD (`1920x1080`) o almeno HD (`1280x720`).  
-  Evita le risoluzioni standard a bassa banda (`640x480`).
+Il sistema deve quindi supportare contemporaneamente:
 
-- **Messa a Fuoco:**  
-  Inserisci i parametri `advanced` per richiedere la messa a fuoco continua (`focusMode: "continuous"`).
+1. **Nuovo standard GS1 DataMatrix**
+   - estrazione AIC
+   - estrazione lotto
+   - estrazione scadenza
 
-- **Compatibilità Mobile:**  
-  Assicurati che l'elemento `<video>` abbia l'attributo `playsinline` attivo per evitarne il blocco su iOS Safari.
+2. **Vecchio bollino farmaceutico italiano (IPZS)**
+   - estrazione esclusiva del codice AIC
+   - ignorare l’assenza di lotto/scadenza
+   - evitare il rigetto del codice come “non riconosciuto”
 
-### Esempio di Target di Configurazione
-
-```javascript
-const constraints = {
-  video: {
-    facingMode: { ideal: "environment" },
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
-    advanced: [{ focusMode: "continuous" }, { whiteBalanceMode: "continuous" }],
-  },
-  audio: false,
-};
-```
+3. **Codici lineari EAN-13**
+   - isolamento automatico delle 9 cifre AIC
+   - gestione del codice più lungo o più affidabile presente sulla confezione
 
 ---
 
-## 2. Restringere il Supporto Formati a SOLO `data_matrix`
+# ⚠️ Problema Attuale da Risolvere
 
-Trova la funzione di inizializzazione della libreria di scansione o dell'API nativa del browser (es. `BarcodeDetector`, `html5-qrcode`, o `ZXing`). Configurala per forzare la ricerca esclusiva del formato DataMatrix.
+## Vecchi Bollini Farmaceutici
 
-Questo riduce drasticamente il carico della CPU sul telefono e previene letture parziali errate.
+I vecchi bollini farmaceutici italiani stampati o applicati a matrice di punti:
 
-### Configurazioni Richieste
+- non seguono il nuovo standard europeo GS1 FMD
+- contengono principalmente:
+  - codice AIC
+  - numero seriale
+- non includono necessariamente:
+  - lotto
+  - data di scadenza
 
-#### Se usi `BarcodeDetector` (API Nativa)
+L’attuale parsing troppo rigido basato su GS1 provoca errori come:
 
-Passa esplicitamente:
+- “codice non riconosciuto”
+- scarto del DataMatrix
+- mancata identificazione del farmaco
 
-```javascript
-formats: ["data_matrix"];
-```
-
-#### Se usi `html5-qrcode`
-
-Configura:
-
-```javascript
-formatsToSupport: [Html5QrcodeSupportedFormats.DATA_MATRIX];
-```
-
-#### Se usi `ZXing`
-
-- Imposta la mappa degli `hints` escludendo gli altri formati.
-- Attiva `TRY_HARDER`.
+Il sistema deve invece accettare questi codici ed estrarre almeno l’AIC.
 
 ---
 
-## 3. Debug della Stringa Grezza e Parsing GS1 (Logica Software)
+## Codici EAN-13 / Lineari
 
-Spesso l'errore "codice non riconosciuto" non deriva dalla fotocamera, ma da una validazione troppo stringente del software che rigetta i codici GS1 DataMatrix completi.
+Sulle confezioni italiane possono comparire più codici a barre lineari:
 
-### Aggiungere un Log di Ispezione
+- un codice commerciale standard
+- un codice ministeriale associato all’AIC
 
-Prima di passare il risultato dello scanner alla funzione di validazione, inserisci un log esteso o un alert temporaneo:
+Lo scanner deve:
 
-```javascript
-console.log("STRINGA DATA_MATRIX RILEVATA:", JSON.stringify(rawCode));
-```
-
-### Verifica dello Standard GS1
-
-Ricorda che un DataMatrix farmaceutico:
-
-- inizia spesso con identificatori di applicazione:
-  - `01` → GTIN / AIC
-  - `17` → data di scadenza
-  - `10` → lotto
-- contiene caratteri speciali invisibili come:
-  - `<GS>` (`ASCII 29`) usati come separatori di gruppo
-
-L'agente AI deve assicurarsi che la logica di parsing:
-
-- estragga correttamente l'ID del farmaco
-- gestisca i separatori GS1
-- non scarti l'intera stringa durante la validazione
+- leggere i codici lineari supportati
+- discriminare automaticamente il codice corretto
+- isolare le 9 cifre valide dell’AIC
+- privilegiare il codice più completo, lungo o stabile
 
 ---
 
-# Linee Guida UI/UX per il Posizionamento
+# 🛠️ Strategia Operativa Richiesta
 
-Assicurarsi che nel CSS/HTML sia presente un overlay visivo:
+## 1. Unificazione del Flusso di Scansione
 
-- un mirino
-- oppure una bounding box quadrata ben definita
-- centrata sullo schermo
+Qualsiasi formato venga letto dalla fotocamera:
 
-Il DataMatrix deve essere allineato sfruttando:
+- DataMatrix GS1
+- vecchio bollino DataMatrix(contenente solo AIC e numero seriale)
+- EAN-13
 
-- il suo **L-Pattern**
-  - i due lati pieni continui che formano una "L"
-- il suo **Clocking Pattern**
-  - i due lati opposti tratteggiati
+il sistema deve convergere verso un unico obiettivo:
 
-L'interfaccia deve suggerire all'utente di:
+> estrarre un codice AIC valido.
 
-- mantenere il codice fermo
-- posizionarlo al centro
-- attendere l'autofocus
+I campi accessori:
+
+- lotto
+- scadenza
+
+devono essere considerati opzionali.
+
+Se non presenti:
+
+- non bloccare il flusso
+- non invalidare la scansione
+- lasciare i campi vuoti
 
 ---
 
-# Azione Richiesta all'Agente
+## 2. Gestione Differenziata dei Formati
 
-1. Ispeziona `index.html` per identificare la libreria di scansione utilizzata dopo `initScanner()`.
+### Nuovi Bollini GS1 DataMatrix
 
-2. Applica le ottimizzazioni sui vincoli video della fotocamera.
+Se il codice è compatibile con lo standard GS1:
 
-3. Restringi il rilevamento al solo formato `DataMatrix`.
+- eseguire il parsing completo
+- estrarre:
+  - AIC
+  - lotto
+  - scadenza
 
-4. Implementa il log stringificato (`JSON.stringify`) sul codice catturato per facilitare il debug del parsing.
+---
+
+### Vecchi Bollini Italiani
+
+Se il DataMatrix non rispetta il formato GS1:
+
+- non rigettare il codice
+- trattarlo come vecchio bollino IPZS
+- estrarre esclusivamente il codice AIC
+- ignorare il numero seriale residuo
+
+Il sistema deve:
+
+- isolare le cifre numeriche
+- identificare le 9 cifre AIC
+- evitare errori di validazione troppo aggressivi
+
+---
+
+### Codici Lineari (EAN-13 / UPC / Code128)
+
+Per i codici lineari:
+
+- isolare solo la parte numerica
+- identificare automaticamente le 9 cifre compatibili con AIC
+- preferire il codice:
+  - più lungo
+  - più stabile
+  - meno rumoroso
+
+---
+
+# 🔍 Normalizzazione Finale del Codice AIC
+
+Prima del fetch verso Supabase o verso il database farmaci, il sistema deve:
+
+- rimuovere caratteri spuri
+- rimuovere eventuali spazi
+- correggere eventuali prefissi errati
+- normalizzare il codice per garantire una corrispondenza esatta
+
+Il sistema deve inoltre tollerare:
+
+- letture OCR sporche
+- caratteri residui
+- eventuali prefissi alfabetici accidentali
+
+---
+
+# 🧪 Logging & Debug Richiesti
+
+Lo scanner deve produrre log completi per facilitare il debug.
+
+È necessario registrare:
+
+- formato rilevato
+- stringa grezza letta dalla fotocamera
+- strategia di parsing scelta
+- AIC finale estratto
+
+L’obiettivo è facilitare l’analisi di:
+
+- codici non riconosciuti
+- vecchi bollini IPZS
+- incompatibilità GS1
+- errori di autofocus o decodifica
+
+---
+
+# ✅ Comportamento Finale Atteso
+
+Il comportamento corretto dello scanner deve essere:
+
+- scansione stabile e veloce
+- compatibilità sia con bollini nuovi che vecchi
+- nessun blocco per assenza di lotto/scadenza
+- estrazione affidabile del solo AIC
+- riduzione drastica degli errori “codice non riconosciuto”
+- compatibilità con confezioni farmaceutiche italiane reali
