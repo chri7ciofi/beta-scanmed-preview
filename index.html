@@ -1316,7 +1316,7 @@ html, body {
           </div>
         </div>
 
-        <p class="scan-hint">Centra il DataMatrix nel mirino e tieni fermo: attendi la messa a fuoco</p>
+        <p class="scan-hint">Inquadra il codice AIC (DataMatrix o EAN-13) e tieni fermo: attendi la messa a fuoco</p>
 
         <!-- Live camera scan (shown only where BarcodeDetector + camera are available) -->
         <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
@@ -2145,13 +2145,16 @@ function isValidAIC(aic) {
 // handleScan (so the two never diverge).
 function decodeAIC(code) {
   const raw = code.rawValue || '';
-  // Since SCAN_FORMATS is strictly ['data_matrix'], any detected code is a DataMatrix.
-  const parsed = parseGS1(raw);
-  if (parsed.aic) {
-    return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
+  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
+    const parsed = parseGS1(raw);
+    if (parsed.aic) {
+      return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
+    }
+    // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
+    return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
   }
-  // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
-  return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
+  // Linear EAN-13 / Code128: NTIN pharma code or old bollino AIC barcode
+  return { aic: extractAIC(raw), prefill: {}, strategy: 'linear-extractAIC' };
 }
 
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
@@ -2169,37 +2172,33 @@ function cameraSupported() {
     && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-// Formats we scan: strictly DataMatrix codes as requested (old bollini and new GS1).
-// AIC-only extraction: we ignore EAN-13/Code128 linear formats and only parse the AIC
-// from the 2D DataMatrix.
-const SCAN_FORMATS = ['data_matrix'];
+// Formats we scan: GS1 DataMatrix (new bollini) + linear EAN-13 / Code128
+// (NTIN pharma codes + old bollini). On old bollini the AIC lives on the 2 EAN
+// codes; the DataMatrix often carries only the serial — so EAN-13 is essential.
+// AIC-first: decodeAIC converges every format on a 9-digit AIC, and the
+// isValidAIC gate (leading 0) discards the serial/box barcode.
+const SCAN_FORMATS = ['data_matrix', 'ean_13', 'code_128'];
 
-// Resolve a BarcodeDetector for SCAN_FORMATS. Always prioritize the highly optimized
-// ZXing-based polyfill (via barcode-detector) for DataMatrix scanning because native
-// implementations (e.g. on iOS or Android) are either absent or highly unreliable
-// for small, high-density pharmaceutical DataMatrix codes. Falls back to native only if
-// the polyfill fails to load.
+// Resolve a BarcodeDetector for SCAN_FORMATS. Use the native API when it exposes
+// data_matrix (Android/macOS/ChromeOS); otherwise (and on desktop Chrome/Edge,
+// where it's absent) load the zxing-wasm polyfill on demand. side-effects.js
+// registers a global BarcodeDetector and wires the default jsDelivr WASM path.
 async function ensureBarcodeDetector() {
-  setScanStatus('Caricamento decoder…');
-  try {
-    const mod = await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/index.js');
-    setScanStatus('');
-    return new mod.BarcodeDetector({ formats: SCAN_FORMATS });
-  } catch (err) {
-    console.error('[ScanMed] Failed to load polyfill:', err);
-    // Fallback to native if polyfill fails (e.g. offline and not cached yet)
-    if ('BarcodeDetector' in window) {
-      try {
-        const supported = await BarcodeDetector.getSupportedFormats();
-        if (supported.includes('data_matrix')) {
-          const formats = SCAN_FORMATS.filter(f => supported.includes(f));
-          setScanStatus('');
-          return new BarcodeDetector({ formats });
-        }
-      } catch (_) {}
-    }
-    throw err;
+  if ('BarcodeDetector' in window) {
+    try {
+      const supported = await BarcodeDetector.getSupportedFormats();
+      if (supported.includes('data_matrix')) {
+        // Intersect with what the native engine actually supports so an
+        // unsupported format never breaks construction.
+        const formats = SCAN_FORMATS.filter(f => supported.includes(f));
+        return new BarcodeDetector({ formats });
+      }
+    } catch (_) {}
   }
+  setScanStatus('Caricamento decoder…');
+  await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
+  setScanStatus('');
+  return new BarcodeDetector({ formats: SCAN_FORMATS });
 }
 
 function setScanStatus(msg) {
@@ -2276,6 +2275,11 @@ async function scanLoop() {
     if (codes && codes.length && !scanBusy) {
       // A frame may hold several barcodes (old bollino = 2 EAN + 1 DataMatrix).
       // Pick the one that yields a real AIC; ignore the serial/box barcode.
+      codes.forEach(c => {
+        const d = decodeAIC(c);
+        console.log('[ScanMed] frame code:', c.format, '| raw:', JSON.stringify(c.rawValue || ''),
+          '| AIC:', d.aic || '(none)', '| valid:', isValidAIC(d.aic));
+      });
       const hit = codes.find(c => isValidAIC(decodeAIC(c).aic));
       if (hit) {
         scanBusy = true;
