@@ -2145,15 +2145,13 @@ function isValidAIC(aic) {
 // handleScan (so the two never diverge).
 function decodeAIC(code) {
   const raw = code.rawValue || '';
-  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
-    const parsed = parseGS1(raw);
-    if (parsed.aic) {
-      return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
-    }
-    // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
-    return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
+  // Since SCAN_FORMATS is strictly ['data_matrix'], any detected code is a DataMatrix.
+  const parsed = parseGS1(raw);
+  if (parsed.aic) {
+    return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
   }
-  return { aic: '', prefill: {}, strategy: 'unknown' };
+  // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
+  return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
 }
 
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
@@ -2176,25 +2174,32 @@ function cameraSupported() {
 // from the 2D DataMatrix.
 const SCAN_FORMATS = ['data_matrix'];
 
-// Resolve a BarcodeDetector for SCAN_FORMATS. The native API on some Android
-// devices exists but omits data_matrix from getSupportedFormats(); in that case
-// (and when the API is absent altogether) we load the zxing-wasm polyfill on
-// demand. Throws if the polyfill can't be fetched (e.g. offline).
+// Resolve a BarcodeDetector for SCAN_FORMATS. Always prioritize the highly optimized
+// ZXing-based polyfill (via barcode-detector) for DataMatrix scanning because native
+// implementations (e.g. on iOS or Android) are either absent or highly unreliable
+// for small, high-density pharmaceutical DataMatrix codes. Falls back to native only if
+// the polyfill fails to load.
 async function ensureBarcodeDetector() {
-  if ('BarcodeDetector' in window) {
-    try {
-      const supported = await BarcodeDetector.getSupportedFormats();
-      if (supported.includes('data_matrix')) {
-        // Intersect with what the native engine actually supports so an
-        // unsupported format never breaks construction.
-        const formats = SCAN_FORMATS.filter(f => supported.includes(f));
-        return new BarcodeDetector({ formats });
-      }
-    } catch (_) {}
-  }
   setScanStatus('Caricamento decoder…');
-  await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.js');
-  return new BarcodeDetector({ formats: SCAN_FORMATS });
+  try {
+    const mod = await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/index.js');
+    setScanStatus('');
+    return new mod.BarcodeDetector({ formats: SCAN_FORMATS });
+  } catch (err) {
+    console.error('[ScanMed] Failed to load polyfill:', err);
+    // Fallback to native if polyfill fails (e.g. offline and not cached yet)
+    if ('BarcodeDetector' in window) {
+      try {
+        const supported = await BarcodeDetector.getSupportedFormats();
+        if (supported.includes('data_matrix')) {
+          const formats = SCAN_FORMATS.filter(f => supported.includes(f));
+          setScanStatus('');
+          return new BarcodeDetector({ formats });
+        }
+      } catch (_) {}
+    }
+    throw err;
+  }
 }
 
 function setScanStatus(msg) {
