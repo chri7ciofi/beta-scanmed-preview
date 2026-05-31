@@ -2134,6 +2134,28 @@ function parseGS1(raw) {
   return { aic, expiry, lotto };
 }
 
+// A real 9-digit AIC always starts with "0". This rejects serial/box barcodes
+// (present on old bollini alongside the 2 AIC codes) that are NOT in the DB.
+function isValidAIC(aic) {
+  return /^0\d{8}$/.test(aic);
+}
+
+// Decode one detected barcode into { aic, prefill, strategy } — the single
+// per-format routing point, reused by scanLoop (candidate selection) and
+// handleScan (so the two never diverge).
+function decodeAIC(code) {
+  const raw = code.rawValue || '';
+  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
+    const parsed = parseGS1(raw);
+    if (parsed.aic) {
+      return { aic: parsed.aic, prefill: { scadenza: parsed.expiry, lotto: parsed.lotto }, strategy: 'GS1-DataMatrix' };
+    }
+    // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
+    return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
+  }
+  return { aic: extractAIC(raw), prefill: {}, strategy: 'linear-extractAIC' }; // ean_13 / code_128
+}
+
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
 let scanStream = null;     // active MediaStream
 let scanDetector = null;   // reused BarcodeDetector instance
@@ -2247,9 +2269,16 @@ async function scanLoop() {
     const codes = await scanDetector.detect(bitmap);
     bitmap.close();
     if (codes && codes.length && !scanBusy) {
-      scanBusy = true;
-      await handleScan(codes[0]);
-      return; // handleScan stops the camera; do not re-queue the loop
+      // A frame may hold several barcodes (old bollino = 2 EAN + 1 DataMatrix).
+      // Pick the one that yields a real AIC; ignore the serial/box barcode.
+      const hit = codes.find(c => isValidAIC(decodeAIC(c).aic));
+      if (hit) {
+        scanBusy = true;
+        await handleScan(hit);
+        return; // handleScan stops the camera; do not re-queue the loop
+      }
+      // Only non-AIC codes in view (likely the serial) — keep scanning, guide the user
+      setScanStatus('Inquadra il codice AIC (inizia per 0), non il seriale');
     }
   } catch (e) { console.warn('[ScanMed] scan detect error:', e); }
   scanRAF = requestAnimationFrame(scanLoop);
@@ -2257,23 +2286,11 @@ async function scanLoop() {
 
 // Route a detected barcode: EAN-13 → AIC; GS1 DataMatrix → AIC + expiry + lotto.
 async function handleScan(code) {
-  const raw = code.rawValue || '';
-  console.log('[ScanMed] detected format:', code.format, '| raw:', JSON.stringify(raw));
-  let aic = '', prefill = {}, strategy = '';
-  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
-    const parsed = parseGS1(raw);
-    aic = parsed.aic;
-    prefill = { scadenza: parsed.expiry, lotto: parsed.lotto };
-    strategy = 'GS1-DataMatrix';
-    // Fallback for DataMatrix that encodes AIC digits directly (non-GS1 / old IPZS bollino)
-    if (!aic) { aic = extractAIC(raw); strategy = 'DataMatrix-extractAIC'; }
-  } else {
-    aic = extractAIC(raw); // ean_13 / code_128 linear
-    strategy = 'linear-extractAIC';
-  }
+  const { aic, prefill, strategy } = decodeAIC(code);
+  console.log('[ScanMed] detected format:', code.format, '| raw:', JSON.stringify(code.rawValue || ''));
   console.log('[ScanMed] strategy:', strategy, '| AIC:', aic || '(none)');
   stopCamera();
-  if (!aic) { showToast('Codice non riconosciuto', 'warning'); return; }
+  if (!isValidAIC(aic)) { showToast('Codice non riconosciuto', 'warning'); return; }
   setScanStatus('Ricerca farmaco…');
   const farmaco = await fetchByAIC(aic);
   setScanStatus('');
