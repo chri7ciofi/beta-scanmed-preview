@@ -2148,12 +2148,12 @@ function decodeAIC(code) {
   if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
     const parsed = parseGS1(raw);
     if (parsed.aic) {
-      return { aic: parsed.aic, prefill: { scadenza: parsed.expiry, lotto: parsed.lotto }, strategy: 'GS1-DataMatrix' };
+      return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
     }
     // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
     return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
   }
-  return { aic: extractAIC(raw), prefill: {}, strategy: 'linear-extractAIC' }; // ean_13 / code_128
+  return { aic: '', prefill: {}, strategy: 'unknown' };
 }
 
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
@@ -2171,10 +2171,10 @@ function cameraSupported() {
     && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-// Formats we scan: GS1 DataMatrix (new bollini), plus linear EAN-13 / Code128
-// (NTIN pharma codes + old bollini). AIC-first: handleScan converges all of
-// them on a 9-digit AIC (see extractAIC / parseGS1).
-const SCAN_FORMATS = ['data_matrix', 'ean_13', 'code_128'];
+// Formats we scan: strictly DataMatrix codes as requested (old bollini and new GS1).
+// AIC-only extraction: we ignore EAN-13/Code128 linear formats and only parse the AIC
+// from the 2D DataMatrix.
+const SCAN_FORMATS = ['data_matrix'];
 
 // Resolve a BarcodeDetector for SCAN_FORMATS. The native API on some Android
 // devices exists but omits data_matrix from getSupportedFormats(); in that case

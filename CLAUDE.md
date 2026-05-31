@@ -8,6 +8,13 @@ ScanMed beta preview — a single-file Italian pharmaceutical home-management ap
 
 Open it directly in a browser: `start index.html` (Windows) or `open index.html` (macOS).
 
+## Commands & workflow
+
+- **No build, no package manager, no automated tests.** The app *is* `index.html`; verification is manual in a browser.
+- **Run locally**: `start index.html`. Opening as `file://` renders the UI but **skips the service worker and blocks `navigator.mediaDevices`** — so the camera scanner won't work (see PWA / Scanner sections).
+- **Test camera / PWA locally**: needs a secure context — serve over local HTTPS (any HTTPS static server) or use the GitHub Pages deploy.
+- **Deploy**: push to `main` → GitHub Pages publishes at `https://chri7ciofi.github.io/beta-scanmed-preview/`, the HTTPS origin that enables `getUserMedia`.
+
 ## Architecture
 
 Everything is in one file, structured top-to-bottom:
@@ -80,9 +87,9 @@ SW registration fires in `DOMContentLoaded` only when `location.protocol !== 'fi
 
 - **No native `BarcodeDetector` on Windows/Linux desktop Chrome/Edge** — the Shape Detection API ships only on Android/macOS/ChromeOS. The camera button is **always rendered** (no `cameraSupported()` display guard). `ensureBarcodeDetector()` lazily `import()`s the `barcode-detector` polyfill (zxing-wasm) from jsDelivr when the native API is absent. Dynamic `import()` runs inside the existing classic `<script>` — do **not** introduce a build step or `<script type="module">` to support it.
 - **Secure context required**: `startCamera()` checks `navigator.mediaDevices` upfront and shows an Italian error message if it's absent (HTTP context). The button is always visible so users on non-HTTPS see the message rather than a missing button.
-- **AIC-first, multi-format** (SCANNER.md): the only mandatory field is the 9-digit AIC; lotto/expiry are optional. Camera scans `SCAN_FORMATS = ['data_matrix','ean_13','code_128']` — GS1 DataMatrix (new bollini), old IPZS DataMatrix (AIC + serial, non-GS1), and linear EAN-13 / Code128 NTIN codes. On the native API path `ensureBarcodeDetector()` intersects `SCAN_FORMATS` with `getSupportedFormats()` so an unsupported format never breaks construction. `getUserMedia` requests Full HD (`ideal` 1920×1080) + continuous `focusMode` for the sub-millimetre DataMatrix modules.
-- **Multi-barcode frames**: an old bollino carries 3 barcodes (2 EAN + 1 DataMatrix); only 2 encode the AIC, the third is the **serial/box number (not in the DB)**. `scanDetector.detect()` returns *all* codes in the frame, so `scanLoop()` selects the first whose decode passes `isValidAIC()` (`/^0\d{8}$/` — a real AIC always starts with `0`) and ignores serial codes. If only a serial is in view it does **not** stop or error — it keeps scanning and hints the user to frame the AIC code.
-- `decodeAIC(code)` is the single per-format routing point (reused by `scanLoop` + `handleScan`): `data_matrix` → `parseGS1()` (AIC + prefill expiry/lotto), falling back to `extractAIC(raw)` for non-GS1 / old IPZS payloads; linear formats → `extractAIC()`. `handleScan()` logs `strategy` + final AIC and gates on `isValidAIC()`. Missing lotto/expiry never blocks the flow.
+- **DataMatrix-only scanning** (SCANNER.md): The scanner restricts scanning strictly to DataMatrix codes (`SCAN_FORMATS = ['data_matrix']`), filtering out EAN-13 or Code-128 barcodes. On the native API path `ensureBarcodeDetector()` intersects `SCAN_FORMATS` with `getSupportedFormats()` so an unsupported format never breaks construction. `getUserMedia` requests Full HD (`ideal` 1920×1080) + continuous `focusMode` for the sub-millimetre DataMatrix modules.
+- **AIC-only extraction**: The scanner extracts strictly the AIC code. Prefilling of other fields (expiry and lotto) is skipped as requested by the user.
+- `decodeAIC(code)` is the single per-format routing point (reused by `scanLoop` + `handleScan`): `data_matrix` → `parseGS1()` or fallback to `extractAIC(raw)` for non-GS1 / old IPZS payloads. Non-DataMatrix formats are ignored.
 - **`extractAIC()` is the single AIC normalization point** — every source converges here. Strict precedence: NTIN GTIN-13 (`080` + 9-digit AIC + check, also the trailing 13 of a GS1 AI `01` GTIN-14) → `slice(3,12)`; bare/manual ≤9 digits → `padStart(9,'0')`; anything longer non-NTIN (old IPZS bollino = AIC + serial) → leading 9 digits `slice(0,9)`. Returns `''` only when there are no digits.
 - **GS1 parsing** (`parseGS1`) walks Application Identifiers from the string start — never `indexOf`, which false-matches digits inside the GTIN/AIC. AI `01` GTIN-14, AI `17` expiry `YYMMDD` (if `DD==='00'` → `28`), AI `10` lotto. Non-GS1 DataMatrix yields empty `aic`, so `handleScan` falls back to `extractAIC()`.
 - Camera stream is released in `navigate()` when leaving the scanner screen — preserve this to free the device.
@@ -92,3 +99,9 @@ SW registration fires in `DOMContentLoaded` only when `location.protocol !== 'fi
 - **Safety gate**: `addToDispensa()` always calls `checkDuplicatePrincipio()` first; it stores a `safetyCallback` and shows the blocking alert — never bypass this
 - **AIC padding**: all AIC codes must be `padStart(9, '0')` before querying Supabase
 - **Reorder alert**: `logDose()` decrements `farmaco.quantita` and fires a warning toast when it reaches ≤ 3
+
+## Reference docs
+
+- `SCANNER.md` — scanner AIC-extraction spec (AIC-first strategy); cited directly in scanner code comments as `SCANNER.md §3` / `§3.2`. Read before touching scanner logic.
+- `PRD-scanmed.md` — product requirements / module spec for the app's screens and flows.
+- `graphify-out/` — generated knowledge-graph artifacts (not source code); regenerated via the `/graphify` skill.
