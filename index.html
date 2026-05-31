@@ -342,6 +342,8 @@ html, body {
   gap: 5px;
   padding: 4px 11px;
   border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
   font-size: 11px;
   font-weight: 600;
 }
@@ -739,8 +741,10 @@ html, body {
   font-weight: 600;
   color: var(--text-muted);
   background: var(--cream);
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .remove-btn {
@@ -1368,7 +1372,7 @@ html, body {
           <line x1="90" y1="120" x2="130" y2="150" stroke="white" stroke-width="1.5"/>
         </svg>
         <div class="subtitle">Benvenuto</div>
-        <h1>La tua Salute</h1>
+        <h1>ScanMed</h1>
         <p id="home-date">Giovedì, 28 maggio 2026</p>
       </div>
 
@@ -1428,9 +1432,9 @@ html, body {
         <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
           Attiva fotocamera
         </button>
-        <p id="scan-status" style="font-size:11px;color:var(--text-muted);margin-top:-6px;display:none;"></p>
+        <p id="scan-status" style="font-size:11.5px;color:var(--text-muted);text-align:center;line-height:1.5;max-width:300px;margin-top:-4px;display:none;"></p>
 
-        <p id="demo-hint" style="font-size:11px;color:var(--text-muted);margin-top:-6px;">Demo: seleziona un farmaco da scansionare</p>
+        <p id="demo-hint" style="font-size:11.5px;color:var(--text-muted);text-align:center;margin-top:-4px;">Demo: seleziona un farmaco da scansionare</p>
 
         <div class="demo-aic-list">
           <button class="aic-pill" data-aic="012745093" data-name="TACHIPIRINA">TACHIPIRINA</button>
@@ -1947,7 +1951,7 @@ function renderHome() {
       const status = getExpiryStatus(d.data_scadenza);
       return `<div class="drug-card ${status}">
         <div class="drug-row">
-          <div>
+          <div style="flex:1;min-width:0;">
             <div class="drug-name">${d.nome_commerciale}</div>
             <div class="drug-principio">${d.principio_attivo}</div>
           </div>
