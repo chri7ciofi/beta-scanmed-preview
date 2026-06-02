@@ -587,9 +587,27 @@ html, body {
   display: none;
 }
 
+/* Aiming reticle: a wide-short slot sized for the linear Code39. The huge
+   box-shadow dims everything outside the slot (clipped by .viewfinder overflow),
+   guiding the user to frame only the barcode. Shown only while scanning. */
+.vf-reticle {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 88%; height: 30%;
+  border: 2px solid var(--blue-primary);
+  border-radius: 10px;
+  box-shadow: 0 0 0 999px rgba(8, 18, 40, .45);
+  overflow: hidden;
+  display: none;
+  z-index: 2;
+}
+
 /* When the live camera is running, reveal the feed and dim the placeholder icon */
 .viewfinder.scanning #scan-video { display: block; }
 .viewfinder.scanning .vf-center-icon { display: none; }
+.viewfinder.scanning .vf-corner { display: none; }
+.viewfinder.scanning .vf-reticle { display: block; }
 .viewfinder.scanning { border-color: var(--blue-primary); }
 
 .scan-hint {
@@ -1414,7 +1432,7 @@ html, body {
       <div class="scanner-wrap">
         <div class="viewfinder" id="viewfinder">
           <video id="scan-video" playsinline muted></video>
-          <div class="scan-line"></div>
+          <div class="vf-reticle"><div class="scan-line"></div></div>
           <div class="vf-corner vf-tl"></div>
           <div class="vf-corner vf-tr"></div>
           <div class="vf-corner vf-bl"></div>
@@ -1429,7 +1447,7 @@ html, body {
           </div>
         </div>
 
-        <p class="scan-hint">Inquadra il codice a barre AIC (Code39) sul bollino e tieni fermo: attendi la messa a fuoco</p>
+        <p class="scan-hint">Allinea il codice a barre AIC (Code39) dentro il riquadro e tieni fermo: attendi la messa a fuoco</p>
 
         <!-- Live camera scan (shown only where BarcodeDetector + camera are available) -->
         <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
@@ -2194,9 +2212,9 @@ function openAddDrugModal(farmaco, prefill = {}) {
 }
 
 // ─── AIC NORMALIZATION ──────────────────────────────────────────────────────────
-// The ONLY field is the 9-digit AIC. extractAIC() is the single normalization
-// point: every source (Code39 scan + manual entry) converges here.
-//   • Code39 Area-1 bollino = "A" + 9-digit AIC → \D strip drops the "A" prefix.
+// Decimal-AIC normalizer. The Code39 scan path decodes Code32 first (code32ToAic);
+// this is the fallback for decimal sources — manual entry + any barcode carrying
+// the decimal AIC directly.
 //   • Bare/manual entry = ≤9 digits → left-pad to 9.
 //   • NTIN GTIN-13 = "080" + 9-digit AIC + check digit → slice [3:12] (kept for
 //     robustness when an AIC is pasted/typed in EAN form).
@@ -2219,13 +2237,32 @@ function isValidAIC(aic) {
   return /^0\d{8}$/.test(aic);
 }
 
+// Italian bollino Code39 encodes the AIC in CODE 32 ("Farmacode"): a 6-char
+// base-32 string over this alphabet (digits + consonants, NO vowels A/E/I/O).
+// e.g. "0V62VR" → 028511095. It is NOT the decimal AIC — digit-stripping it is
+// what produced wrong values like 000000062.
+const CODE32_ALPHABET = '0123456789BCDFGHJKLMNPQRSTUVWXYZ';
+
+// Decode a Code32 payload → 9-digit AIC. Uppercase, then drop any char outside the
+// alphabet (a stray "A" prefix, "*" start/stop, separators). Decode only when
+// exactly 6 valid symbols remain; otherwise return '' so the caller can fall back.
+function code32ToAic(raw) {
+  const s = String(raw).toUpperCase().replace(/[^0-9BCDFGHJKLMNPQRSTUVWXYZ]/g, '');
+  if (s.length !== 6) return '';
+  let n = 0;
+  for (const ch of s) n = n * 32 + CODE32_ALPHABET.indexOf(ch);
+  return String(n).padStart(9, '0');
+}
+
 // Decode one detected Code39 barcode into { aic, prefill, strategy } — the single
 // routing point, reused by scanLoop (candidate selection) and handleScan (so the
-// two never diverge). Area-1 payload is "A" + 9-digit AIC; extractAIC strips the
-// "A". prefill stays empty: the scanner extracts the AIC only (no expiry/lotto).
+// two never diverge). Code32 decode first; fall back to extractAIC for any non
+// 6-char payload (e.g. a barcode carrying the decimal AIC directly). prefill stays
+// empty: the scanner extracts the AIC only (no expiry/lotto).
 function decodeAIC(code) {
   const raw = code.rawValue || '';
-  return { aic: extractAIC(raw), prefill: {}, strategy: 'code39-stripA' };
+  const aic = code32ToAic(raw) || extractAIC(raw);
+  return { aic, prefill: {}, strategy: 'code39-code32' };
 }
 
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
@@ -2310,7 +2347,7 @@ async function startCamera() {
     } catch (_) { /* focus not controllable: non-blocking */ }
     document.getElementById('viewfinder').classList.add('scanning');
     document.getElementById('btn-toggle-camera').textContent = 'Ferma fotocamera';
-    setScanStatus('Scansione in corso… inquadra il codice');
+    setScanStatus('Scansione… allinea il codice AIC nel riquadro');
     scanBusy = false;
     scanLoop();
   } catch (err) {
@@ -2340,7 +2377,13 @@ async function scanLoop() {
     return;
   }
   try {
-    const bitmap = await createImageBitmap(video);
+    // Crop to the central horizontal band matching the on-screen reticle, so only a
+    // Code39 framed inside the slot is decoded (serial / other codes outside are
+    // ignored). object-fit:cover maps source centre → box centre, so they align.
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const sw = Math.round(vw * 0.9), sh = Math.round(vh * 0.3);
+    const sx = Math.round((vw - sw) / 2), sy = Math.round((vh - sh) / 2);
+    const bitmap = await createImageBitmap(video, sx, sy, sw, sh);
     const codes = await scanDetector.detect(bitmap);
     bitmap.close();
     if (codes && codes.length && !scanBusy) {
@@ -2357,7 +2400,7 @@ async function scanLoop() {
         return; // handleScan stops the camera; do not re-queue the loop
       }
       // Code39 in view but not an AIC — keep scanning, guide the user
-      setScanStatus('Inquadra il codice a barre AIC (Code39) sul bollino');
+      setScanStatus('Allinea il codice a barre AIC dentro il riquadro');
     }
   } catch (e) { console.warn('[ScanMed] scan detect error:', e); }
   scanRAF = requestAnimationFrame(scanLoop);
