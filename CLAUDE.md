@@ -45,18 +45,21 @@ Everything is in one file, structured top-to-bottom:
 
 ```json
 {
-  "dispensa": [{ "id", "codice_aic", "nome_commerciale", "principio_attivo", "confezione", "data_scadenza", "quantita", "lotto" }],
+  "dispensa": [{ "id", "codice_aic", "nome_commerciale", "principio_attivo", "confezione", "foglio_illustrativo_url", "rcp_url", "data_scadenza", "quantita", "lotto" }],
   "cicli":    [{ "id", "farmaco_id", "nome", "orari", "data_inizio", "data_fine", "log": [{ "data", "stato" }] }]
 }
 ```
+
+Second localStorage key `scanmed_scheda_v1` — 20h TTL cache for the Scheda Tecnica feature: `{ [aic]: { foglio_illustrativo_url, rcp_url, cached_at, expires_at } }`. Written by `fetchSchedaTecnica()`.
 
 ## Supabase backend
 
 - Project: `wrynjuqskcjqbnrqsegz` (eu-central-1)
 - Table: `public.farmaci` — 8,516 rows, RLS enabled with public SELECT
-- Columns: `id` (bigint PK) · `codice_aic` (text, unique, 9-digit, zero-padded) · `nome_commerciale` · `principio_attivo` · `confezione`
+- Columns: `id` (bigint PK) · `codice_aic` (text, unique, 9-digit, zero-padded) · `nome_commerciale` · `principio_attivo` · `confezione` · `foglio_illustrativo_url` (text, nullable) · `rcp_url` (text, nullable)
 - AIC lookup: `codice_aic=eq.{9-digit-padded-aic}`
 - Text search: `or=(nome_commerciale.ilike.*{q}*,principio_attivo.ilike.*{q}*)` — encode only the query term with `encodeURIComponent`, **not** the `*` wildcards
+- **Scheda Tecnica (FI/RCP)**: `fetchByAIC`/`searchFarmaci` also select `foglio_illustrativo_url,rcp_url`. AIFA has **no public API** and direct browser calls are CORS-blocked, so document URLs live in these columns (client-only, no proxy). Only the 4 demo AICs are seeded (with the official AIFA portal URL as placeholder); full population is a separate data-sourcing task — UI degrades to a "non disponibile" empty state when null. PDFs open in a new tab (`X-Frame-Options` blocks iframe embed).
 
 ## CSS conventions
 

@@ -1146,6 +1146,208 @@ html, body {
   margin-bottom: 16px;
 }
 
+/* ─── HEADER INFO BUTTON ─── */
+.header-info-btn {
+  position: absolute;
+  top: 22px;
+  right: 18px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,.5);
+  background: var(--grad-amber);
+  color: var(--text-primary);
+  box-shadow: 0 3px 10px rgba(212,137,42,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: filter .2s ease, transform .12s ease;
+}
+.header-info-btn:hover { filter: brightness(1.06); }
+.header-info-btn:active { transform: scale(.92); }
+
+/* ─── BOLLINO INFO MODAL ─── */
+.info-icon-wrap {
+  width: 56px; height: 56px;
+  background: var(--blue-pale);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px auto 16px;
+  color: var(--blue-primary);
+}
+.info-modal-title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: -.3px;
+  line-height: 1.2;
+  margin-bottom: 18px;
+}
+.info-modal-body p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 13px;
+}
+.info-modal-body p:last-of-type { margin-bottom: 0; }
+.info-modal-body strong { color: var(--text-secondary); font-weight: 600; }
+.info-modal-date {
+  background: var(--blue-pale);
+  border: 1px solid var(--hairline-blue);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin: 16px 0;
+  font-size: 12.5px;
+  color: var(--blue-primary);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ─── DOC TRIGGER BUTTON (scan result / dispensa / cerca) ─── */
+.doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--hairline-blue);
+  background: var(--blue-pale);
+  color: var(--blue-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .2s ease, transform .12s ease;
+}
+.doc-btn:hover { background: #E6EEFF; }
+.doc-btn:active { transform: scale(.96); }
+.doc-btn-icon {
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ─── SCHEDA TECNICA MODAL ─── */
+.scheda-head {
+  margin: 2px 0 18px;
+}
+.scheda-name {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -.3px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.scheda-aic {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.scheda-aic span:first-child { font-weight: 600; }
+#scheda-aic { font-family: var(--font-mono, monospace); letter-spacing: .3px; }
+
+.scheda-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 26px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.scheda-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--hairline-blue);
+  border-top-color: var(--blue-primary);
+  border-radius: 50%;
+  animation: schedaSpin .7s linear infinite;
+}
+@keyframes schedaSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .scheda-spinner { animation-duration: 2.4s; }
+}
+
+.scheda-error {
+  padding: 8px 0 4px;
+  text-align: center;
+}
+.scheda-error p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.scheda-docs { display: flex; flex-direction: column; gap: 10px; }
+
+.doc-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: var(--grad-surface);
+  cursor: pointer;
+  transition: border-color .2s ease, transform .12s ease, box-shadow .2s ease;
+}
+.doc-link:hover { border-color: var(--hairline-blue); box-shadow: var(--shadow-sm); }
+.doc-link:active { transform: scale(.99); }
+.doc-link:disabled { opacity: .55; cursor: not-allowed; }
+.doc-link:disabled:hover { border-color: var(--hairline); box-shadow: none; }
+
+.doc-link-ic {
+  width: 40px; height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--blue-pale);
+  color: var(--blue-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doc-link-ic.amber { background: var(--amber-pale); color: var(--amber); }
+
+.doc-link-txt { flex: 1; min-width: 0; }
+.doc-link-title {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.doc-link-sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+.doc-link-arrow { flex-shrink: 0; color: var(--text-muted); }
+
+.scheda-disclaimer {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: center;
+  margin-top: 14px;
+}
+
 /* ─── SCAN RESULT CARD ─── */
 #scan-result-card {
   display: none;
@@ -1511,6 +1713,13 @@ html, body {
     ═══════════════════════════════════════════ -->
     <div id="screen-scanner" class="screen">
       <div class="screen-header">
+        <button class="header-info-btn" id="btn-bollino-info" aria-label="Avviso sui bollini farmaceutici">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <line x1="12" y1="11" x2="12" y2="16"/>
+            <line x1="12" y1="7.5" x2="12.01" y2="7.5"/>
+          </svg>
+        </button>
         <div class="subtitle">Modalità</div>
         <h1>Scanner AIC</h1>
         <p>Scansiona o inserisci il codice del farmaco</p>
@@ -1570,6 +1779,10 @@ html, body {
           </div>
           <button class="btn btn-primary btn-full" id="btn-add-from-scan" style="margin-top:8px;">
             Aggiungi alla Dispensa
+          </button>
+          <button class="btn btn-secondary btn-full" id="btn-scheda-from-scan" style="margin-top:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" style="margin-right:6px;vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            Foglio Illustrativo e RCP
           </button>
         </div>
       </div>
@@ -1759,6 +1972,90 @@ html, body {
         <button class="btn btn-primary btn-full" id="btn-safety-cancel">
           Annulla — Torna alla dispensa
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       MODAL: AVVISO BOLLINI
+  ═══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-bollino-info">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="info-icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="11" x2="12" y2="16"/>
+          <line x1="12" y1="7.5" x2="12.01" y2="7.5"/>
+        </svg>
+      </div>
+      <div class="info-modal-title">Avviso sui bollini farmaceutici italiani</div>
+      <div class="info-modal-body">
+        <p>Il sistema dei bollini farmaceutici italiani è attualmente in fase di transizione verso il nuovo standard europeo di serializzazione dei medicinali.</p>
+        <div class="info-modal-date">Fino al 9 febbraio 2027 potranno coesistere confezioni con il tradizionale bollino italiano e confezioni conformi al nuovo formato europeo (Data Matrix 2D).</div>
+        <p>Per questo motivo alcune confezioni potrebbero presentare codici a barre, layout o informazioni differenti rispetto ad altre, pur essendo entrambe regolarmente valide e autorizzate alla vendita.</p>
+        <p>L'app utilizza il codice AIC del medicinale come identificativo principale e potrebbe non leggere o utilizzare eventuali codici seriali europei presenti sulla confezione.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary btn-full" id="btn-bollino-info-close">
+          Ho capito
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       MODAL: SCHEDA TECNICA (FI + RCP)
+  ═══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-scheda">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="scheda-head">
+        <div class="scheda-name" id="scheda-name"></div>
+        <div class="scheda-aic"><span>AIC</span> <span id="scheda-aic"></span></div>
+      </div>
+
+      <div id="scheda-loading" class="scheda-loading">
+        <span class="scheda-spinner"></span> Recupero documenti…
+      </div>
+
+      <div id="scheda-error" class="scheda-error" style="display:none;">
+        <p>Impossibile recuperare i documenti. Verifica la connessione.</p>
+        <button class="btn btn-secondary btn-full" id="btn-scheda-retry">Riprova</button>
+      </div>
+
+      <div id="scheda-docs" class="scheda-docs" style="display:none;">
+        <button class="doc-link" id="doc-link-fi">
+          <span class="doc-link-ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          </span>
+          <span class="doc-link-txt">
+            <span class="doc-link-title">Foglio Illustrativo</span>
+            <span class="doc-link-sub" id="doc-sub-fi">Apri il documento ufficiale</span>
+          </span>
+          <span class="doc-link-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </span>
+        </button>
+
+        <button class="doc-link" id="doc-link-rcp">
+          <span class="doc-link-ic amber">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          </span>
+          <span class="doc-link-txt">
+            <span class="doc-link-title">Scheda Tecnica (RCP)</span>
+            <span class="doc-link-sub" id="doc-sub-rcp">Riassunto Caratteristiche Prodotto</span>
+          </span>
+          <span class="doc-link-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </span>
+        </button>
+
+        <p class="scheda-disclaimer">Documenti dalla banca dati ufficiale AIFA. Si aprono in una nuova scheda.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-full" id="btn-scheda-close">Chiudi</button>
       </div>
     </div>
   </div>
@@ -1990,7 +2287,7 @@ async function fetchByAIC(aic) {
   const padded = aic.trim().padStart(9, '0');
   try {
     const res = await fetch(
-      `${SB_URL}/farmaci?codice_aic=eq.${padded}&select=codice_aic,nome_commerciale,principio_attivo,confezione`,
+      `${SB_URL}/farmaci?codice_aic=eq.${padded}&select=codice_aic,nome_commerciale,principio_attivo,confezione,foglio_illustrativo_url,rcp_url`,
       { headers: SB_HEADERS }
     );
     const data = await res.json();
@@ -2002,11 +2299,105 @@ async function searchFarmaci(query) {
   const q = encodeURIComponent(query);
   try {
     const res = await fetch(
-      `${SB_URL}/farmaci?or=(nome_commerciale.ilike.*${q}*,principio_attivo.ilike.*${q}*)&select=codice_aic,nome_commerciale,principio_attivo,confezione&limit=20`,
+      `${SB_URL}/farmaci?or=(nome_commerciale.ilike.*${q}*,principio_attivo.ilike.*${q}*)&select=codice_aic,nome_commerciale,principio_attivo,confezione,foglio_illustrativo_url,rcp_url&limit=20`,
       { headers: SB_HEADERS }
     );
     return await res.json();
   } catch(e) { return []; }
+}
+
+// ─── SCHEDA TECNICA (Foglio Illustrativo + RCP via AIFA) ────────────────────────
+// MVP per scheda-tecnica.md: l'AIC è la chiave; gli URL ufficiali AIFA (FI/RCP)
+// arrivano già nella riga `farmaci` di Supabase (no chiamata diretta ad AIFA →
+// niente CORS). Cache locale 20h per evitare query ripetute (§4).
+const SCHEDA_CACHE_KEY = 'scanmed_scheda_v1';
+const SCHEDA_TTL_MS = 20 * 60 * 60 * 1000;   // 20 ore
+
+function readSchedaCache() {
+  try { return JSON.parse(localStorage.getItem(SCHEDA_CACHE_KEY)) || {}; }
+  catch (_) { return {}; }
+}
+
+function writeSchedaCache(cache) {
+  try { localStorage.setItem(SCHEDA_CACHE_KEY, JSON.stringify(cache)); } catch (_) {}
+}
+
+// Risolve { foglio_illustrativo_url, rcp_url } per un AIC. Serve dalla cache se
+// fresca (< 20h), altrimenti interroga Supabase e aggiorna la cache. Salva solo
+// metadati minimi (URL + timestamp), mai i PDF (§5). Ritorna null su errore di rete
+// quando non c'è nemmeno una copia in cache.
+async function fetchSchedaTecnica(aic) {
+  const key = String(aic).trim().padStart(9, '0');
+  const cache = readSchedaCache();
+  const entry = cache[key];
+  const now = Date.now();
+  if (entry && entry.expires_at && now < entry.expires_at) {
+    return { foglio_illustrativo_url: entry.foglio_illustrativo_url, rcp_url: entry.rcp_url };
+  }
+  const farmaco = await fetchByAIC(key);
+  if (!farmaco) {
+    // Rete giù: usa la copia scaduta se esiste, così l'utente non resta a mani vuote.
+    if (entry) return { foglio_illustrativo_url: entry.foglio_illustrativo_url, rcp_url: entry.rcp_url };
+    return null;
+  }
+  cache[key] = {
+    foglio_illustrativo_url: farmaco.foglio_illustrativo_url || null,
+    rcp_url: farmaco.rcp_url || null,
+    cached_at: new Date(now).toISOString(),
+    expires_at: now + SCHEDA_TTL_MS,
+  };
+  writeSchedaCache(cache);
+  return { foglio_illustrativo_url: cache[key].foglio_illustrativo_url, rcp_url: cache[key].rcp_url };
+}
+
+// Apre il bottom-sheet documenti per un farmaco e popola FI/RCP. Gestisce gli stati
+// loading / docs / error. I PDF si aprono in nuova scheda (i documenti ufficiali AIFA
+// impostano X-Frame-Options, quindi l'embed in iframe non è affidabile).
+let schedaCurrent = null;
+
+function setDocLink(btnId, subId, url, fallbackSub) {
+  const btn = document.getElementById(btnId);
+  const sub = document.getElementById(subId);
+  if (url) {
+    btn.disabled = false;
+    sub.textContent = fallbackSub;
+    btn.onclick = () => window.open(url, '_blank', 'noopener');
+  } else {
+    btn.disabled = true;
+    sub.textContent = 'Documento non disponibile su AIFA';
+    btn.onclick = null;
+  }
+}
+
+async function openSchedaModal(farmaco) {
+  schedaCurrent = farmaco;
+  document.getElementById('scheda-name').textContent = farmaco.nome_commerciale || 'Farmaco';
+  document.getElementById('scheda-aic').textContent  = farmaco.codice_aic || '';
+  const loading = document.getElementById('scheda-loading');
+  const docs    = document.getElementById('scheda-docs');
+  const error   = document.getElementById('scheda-error');
+  loading.style.display = 'flex';
+  docs.style.display    = 'none';
+  error.style.display   = 'none';
+  openModal('modal-scheda');
+
+  const scheda = await fetchSchedaTecnica(farmaco.codice_aic);
+  // Se il farmaco è già in dispensa, gli URL salvati sono un fallback offline.
+  const fi  = (scheda && scheda.foglio_illustrativo_url) || farmaco.foglio_illustrativo_url || null;
+  const rcp = (scheda && scheda.rcp_url) || farmaco.rcp_url || null;
+
+  // scheda === null → la query è fallita (rete). Mostra errore solo se non c'è
+  // nemmeno un URL di fallback salvato in dispensa.
+  if (!scheda && !fi && !rcp) {
+    loading.style.display = 'none';
+    error.style.display   = 'block';
+    return;
+  }
+
+  setDocLink('doc-link-fi',  'doc-sub-fi',  fi,  'Apri il documento ufficiale');
+  setDocLink('doc-link-rcp', 'doc-sub-rcp', rcp, 'Riassunto Caratteristiche Prodotto');
+  loading.style.display = 'none';
+  docs.style.display    = 'flex';
 }
 
 // ─── ROUTER ───────────────────────────────────────────────────────────────────
@@ -2124,12 +2515,22 @@ function renderDispensa() {
         <span class="qty-badge">📦 ${d.quantita} unità</span>
         <span style="font-size:11px;color:var(--text-muted);">${formatDate(d.data_scadenza)}</span>
         ${d.lotto ? `<span style="font-size:11px;color:var(--text-muted);">Lotto ${d.lotto}</span>` : ''}
+        <button class="doc-btn" data-doc-id="${d.id}" title="Foglio Illustrativo e RCP">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          Documenti
+        </button>
       </div>
     </div>`;
   }).join('');
 
   container.querySelectorAll('.remove-btn').forEach(btn => {
     btn.addEventListener('click', () => removeFromDispensa(btn.dataset.id));
+  });
+  container.querySelectorAll('.doc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = state.dispensa.find(d => d.id === btn.dataset.docId);
+      if (entry) openSchedaModal(entry);
+    });
   });
 }
 
@@ -2163,6 +2564,8 @@ function addToDispensa(farmaco, data_scadenza, quantita, lotto = '', skipSafetyC
     nome_commerciale: farmaco.nome_commerciale,
     principio_attivo: farmaco.principio_attivo,
     confezione: farmaco.confezione || '',
+    foglio_illustrativo_url: farmaco.foglio_illustrativo_url || null,
+    rcp_url: farmaco.rcp_url || null,
     data_scadenza,
     quantita: parseInt(quantita) || 1,
     lotto: lotto || ''
@@ -2630,6 +3033,11 @@ function initScanner() {
     else startCamera();
   });
 
+  // Documenti FI/RCP dal risultato scansione
+  document.getElementById('btn-scheda-from-scan').addEventListener('click', () => {
+    if (state.scanResult) openSchedaModal(state.scanResult);
+  });
+
   // Demo pills
   document.querySelectorAll('.aic-pill').forEach(pill => {
     pill.addEventListener('click', async () => {
@@ -2712,6 +3120,9 @@ function renderSearchResults(data) {
         <div class="result-principio">${f.principio_attivo || ''}</div>
         <div class="result-conf">${f.confezione || ''}</div>
       </div>
+      <button class="doc-btn doc-btn-icon" data-doc-aic="${f.codice_aic}" title="Foglio Illustrativo e RCP">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      </button>
       <button class="add-btn-sm" data-aic="${f.codice_aic}" title="Aggiungi alla dispensa">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -2722,6 +3133,12 @@ function renderSearchResults(data) {
     btn.addEventListener('click', () => {
       const f = data.find(d => d.codice_aic === btn.dataset.aic);
       if (f) openAddDrugModal(f);
+    });
+  });
+  container.querySelectorAll('.doc-btn-icon').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = data.find(d => d.codice_aic === btn.dataset.docAic);
+      if (f) openSchedaModal(f);
     });
   });
 }
@@ -2805,6 +3222,22 @@ function initModals() {
 
   document.getElementById('btn-cancel-add-ciclo').addEventListener('click', () => {
     closeModal('modal-add-ciclo');
+  });
+
+  // Avviso bollini info modal
+  document.getElementById('btn-bollino-info').addEventListener('click', () => {
+    openModal('modal-bollino-info');
+  });
+  document.getElementById('btn-bollino-info-close').addEventListener('click', () => {
+    closeModal('modal-bollino-info');
+  });
+
+  // Scheda tecnica (FI/RCP) modal
+  document.getElementById('btn-scheda-close').addEventListener('click', () => {
+    closeModal('modal-scheda');
+  });
+  document.getElementById('btn-scheda-retry').addEventListener('click', () => {
+    if (schedaCurrent) openSchedaModal(schedaCurrent);
   });
 
   // Dispensa FAB
