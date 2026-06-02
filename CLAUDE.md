@@ -35,7 +35,7 @@ Everything is in one file, structured top-to-bottom:
 | Home        | `renderHome()`                                                                             |
 | Dispensa    | `renderDispensa()`, `addToDispensa()`, `removeFromDispensa()`, `checkDuplicatePrincipio()` |
 | Safety      | `showSafetyAlert()` — blocking modal for duplicate `principio_attivo`                      |
-| Scanner     | `initScanner()`, `renderScanResult()` · live camera: `cameraSupported()`, `ensureBarcodeDetector()`, `startCamera()`/`stopCamera()`, `scanLoop()`, `handleScan()` · parsing: `extractAIC()`, `parseGS1()` |
+| Scanner     | `initScanner()`, `renderScanResult()` · live camera: `cameraSupported()`, `ensureBarcodeDetector()`, `startCamera()`/`stopCamera()`, `scanLoop()`, `handleScan()` · parsing: `decodeAIC()`, `extractAIC()` |
 | Search      | `initSearch()` — 300ms debounce, min 3 chars                                               |
 | Cicli       | `renderCure()`, `logDose()`, `adherencePercent()`                                          |
 | Modals      | `openModal()` / `closeModal()` + all modal button wiring                                   |
@@ -65,8 +65,11 @@ Everything is in one file, structured top-to-bottom:
   - **Backgrounds**: `--blue-pale: #F0F5FF` (card/dialog backgrounds) · `--cream: #F5F0E8` (main app background)
   - **Text**: `--text-primary: #0A1931` (dark navy headings/body) · `--text-muted: #5A6F8F` (secondary text)
   - **Status**: `--amber: #D4892A` (secondary CTA) · `--red-expired: #C0392B` / `--orange-warn: #E67E22` (expiry warnings)
+  - **Premium tokens**: gradients `--grad-blue` / `--grad-amber` / `--grad-surface` / `--grad-app` (use these for headers, nav, primary/amber buttons, card surfaces — not flat fills) · `--hairline` / `--hairline-blue` (1px card borders) · `--ring` (focus-visible) · layered two-stop `--shadow-sm/card/float/deep`
 - Expiry status drives CSS class (`safe` / `warning` / `expired`) on `.drug-card` and `.chip` — colors cascade from those classes
-- Phone frame (390×844px) is stripped at `@media (max-width: 430px)` for real mobile
+- **Stacking gotcha**: `.app-container::before` paints a dot texture at `z-index:0`; `.app-container > .screen` must keep `position:relative; z-index:1` or screen content paints *under* the texture
+- **No clipped text**: drug/dose/ciclo name+principio use `overflow-wrap:anywhere`; flex rows (`.drug-row`, `.ciclo-header`, search `.result-info`) need `min-width:0` on the text column; `.chip` / `.qty-badge` are `white-space:nowrap; flex-shrink:0` so labels never wrap or truncate
+- Phone frame (390×844px) is stripped to full-bleed at `@media (max-width: 768px)` (status bar hidden); at `@media (min-width: 769px)` the desktop wavy-SVG background + `.desktop-side-text` slogans show (hidden again under 1180px)
 - Modals are bottom-sheets by default; the safety alert uses `.modal-overlay.center` for a centered dialog
 
 ## PWA layer
@@ -85,14 +88,15 @@ SW registration fires in `DOMContentLoaded` only when `location.protocol !== 'fi
 
 ## Scanner (camera + barcode decoding)
 
+Strategy: **Code39 only** (`implementazione-scanner.md`). The AIC lives in **Area 1** of the Italian bollino as a Code39 barcode — payload `A` + 9-digit AIC (e.g. `A034811013`). DataMatrix (Area 8) and Interleaved 2of5 (Area 6, the serial) are **deliberately not scanned**, so the serial is never decoded — there is no per-format serial-rejection step to maintain.
+
 - **No native `BarcodeDetector` on Windows/Linux desktop Chrome/Edge** — the Shape Detection API ships only on Android/macOS/ChromeOS. The camera button is **always rendered** (no `cameraSupported()` display guard). `ensureBarcodeDetector()` lazily `import()`s the `barcode-detector` polyfill (zxing-wasm) from jsDelivr when the native API is absent. Dynamic `import()` runs inside the existing classic `<script>` — do **not** introduce a build step or `<script type="module">` to support it.
 - **Secure context required**: `startCamera()` checks `navigator.mediaDevices` upfront and shows an Italian error message if it's absent (HTTP context). The button is always visible so users on non-HTTPS see the message rather than a missing button.
-- **Multi-format scanning** (SCANNER.md): `SCAN_FORMATS = ['data_matrix', 'ean_13', 'code_128']`. On old bollini the AIC lives on the 2 EAN-13 codes while the DataMatrix often carries only the serial — so EAN-13 is essential, **not** filtered out. On the native API path `ensureBarcodeDetector()` intersects `SCAN_FORMATS` with `getSupportedFormats()` so an unsupported format never breaks construction; when native lacks `data_matrix` (desktop Chrome/Edge) it loads the zxing-wasm polyfill via `side-effects.js`. `getUserMedia` requests Full HD (`ideal` 1920×1080) + continuous `focusMode` for the sub-millimetre DataMatrix modules.
-- **Serial rejection**: a frame may hold several barcodes (old bollino = 2 EAN + 1 DataMatrix); `scanLoop` logs every detected code then picks the first whose decoded AIC passes `isValidAIC()` (`^0\d{8}$` — a real AIC starts with `0`), discarding the serial/box barcode that is not in the DB.
-- **AIC-only extraction**: The scanner extracts strictly the AIC code. Prefilling of other fields (expiry and lotto) is skipped as requested by the user.
-- `decodeAIC(code)` is the single per-format routing point (reused by `scanLoop` + `handleScan`): `data_matrix` → `parseGS1()` or fallback to `extractAIC(raw)` for non-GS1 / old IPZS payloads. Non-DataMatrix formats are ignored.
-- **`extractAIC()` is the single AIC normalization point** — every source converges here. Strict precedence: NTIN GTIN-13 (`080` + 9-digit AIC + check, also the trailing 13 of a GS1 AI `01` GTIN-14) → `slice(3,12)`; bare/manual ≤9 digits → `padStart(9,'0')`; anything longer non-NTIN (old IPZS bollino = AIC + serial) → leading 9 digits `slice(0,9)`. Returns `''` only when there are no digits.
-- **GS1 parsing** (`parseGS1`) walks Application Identifiers from the string start — never `indexOf`, which false-matches digits inside the GTIN/AIC. AI `01` GTIN-14, AI `17` expiry `YYMMDD` (if `DD==='00'` → `28`), AI `10` lotto. Non-GS1 DataMatrix yields empty `aic`, so `handleScan` falls back to `extractAIC()`.
+- **Single-format scanning**: `SCAN_FORMATS = ['code_39']`. On the native API path `ensureBarcodeDetector()` intersects `SCAN_FORMATS` with `getSupportedFormats()` so an unsupported format never breaks construction; when native lacks `code_39` / has no `BarcodeDetector` (desktop Chrome/Edge) it loads the zxing-wasm polyfill via `side-effects.js`. `getUserMedia` requests Full HD (`ideal` 1920×1080) + continuous `focusMode`.
+- **AIC gate**: `scanLoop` logs every detected code then picks the first whose decoded AIC passes `isValidAIC()` (`^0\d{8}$` — a real AIC starts with `0`), so any stray non-AIC Code39 in frame is ignored.
+- **AIC-only extraction**: the scanner extracts strictly the AIC. Prefilling of other fields (expiry, lotto) is skipped — `decodeAIC` returns an empty `prefill`.
+- `decodeAIC(code)` is the single routing point (reused by `scanLoop` + `handleScan`): routes the raw Code39 value through `extractAIC(raw)` (strategy `code39-stripA`).
+- **`extractAIC()` is the single AIC normalization point** — every source (scan + manual entry) converges here. `replace(/\D/g,'')` strips the Code39 `A` prefix; then: bare/manual ≤9 digits → `padStart(9,'0')`; NTIN GTIN-13 (`080` + 9-digit AIC + check) → `slice(3,12)` (kept for robustness when an AIC is pasted in EAN form); anything else longer → leading 9 digits `slice(0,9)`. Returns `''` only when there are no digits.
 - Camera stream is released in `navigate()` when leaving the scanner screen — preserve this to free the device.
 
 ## Key behaviours to preserve
@@ -103,6 +107,6 @@ SW registration fires in `DOMContentLoaded` only when `location.protocol !== 'fi
 
 ## Reference docs
 
-- `SCANNER.md` — scanner AIC-extraction spec (AIC-first strategy); cited directly in scanner code comments as `SCANNER.md §3` / `§3.2`. Read before touching scanner logic.
+- `implementazione-scanner.md` — scanner spec: Code39-only AIC extraction (whitelist Code39, ignore DataMatrix + I2of5 serial). Read before touching scanner logic.
 - `PRD-scanmed.md` — product requirements / module spec for the app's screens and flows.
 - `graphify-out/` — generated knowledge-graph artifacts (not source code); regenerated via the `/graphify` skill.

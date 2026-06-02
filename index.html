@@ -153,6 +153,9 @@ html, body {
   -ms-overflow-style: none;
   padding-bottom: 80px;
 }
+.screen > * {
+  flex-shrink: 0;
+}
 .screen::-webkit-scrollbar { display: none; }
 .screen.active { display: flex; }
 
@@ -1426,7 +1429,7 @@ html, body {
           </div>
         </div>
 
-        <p class="scan-hint">Inquadra il codice AIC (DataMatrix o EAN-13) e tieni fermo: attendi la messa a fuoco</p>
+        <p class="scan-hint">Inquadra il codice a barre AIC (Code39) sul bollino e tieni fermo: attendi la messa a fuoco</p>
 
         <!-- Live camera scan (shown only where BarcodeDetector + camera are available) -->
         <button class="btn btn-primary btn-full" id="btn-toggle-camera" style="display:none;">
@@ -2182,7 +2185,7 @@ function openAddDrugModal(farmaco, prefill = {}) {
   document.getElementById('modal-dp-principio').textContent = farmaco.principio_attivo;
   document.getElementById('modal-add-drug-subtitle').textContent = farmaco.confezione || '';
   const todayStr = today();
-  // Prefill expiry/lotto when they arrive from a GS1 DataMatrix scan (SCANNER.md §3.2)
+  // Scanner extracts AIC only — prefill is empty; user fills expiry/lotto manually.
   document.getElementById('modal-scadenza').value = prefill.scadenza || '';
   document.getElementById('modal-scadenza').min   = todayStr;
   document.getElementById('modal-qty').value      = '';
@@ -2190,14 +2193,13 @@ function openAddDrugModal(farmaco, prefill = {}) {
   openModal('modal-add-drug');
 }
 
-// ─── GS1 / AIC PARSING (SCANNER.md §3) ──────────────────────────────────────────
-// The ONLY mandatory field is the 9-digit AIC. extractAIC() is the single
-// normalization point: it converges every code source on a valid AIC.
-//   • NTIN GTIN-13 = "080" + 9-digit AIC + check digit (Italian pharma EAN-13 /
-//     GS1 AI 01 GTIN-14). Detected strictly by the "080" prefix → slice [3:12].
-//   • Old IPZS bollino (non-GS1 DataMatrix) = AIC(9) + serial → AIC is the
-//     LEADING 9 digits (never an "080" GTIN); take slice(0,9).
+// ─── AIC NORMALIZATION ──────────────────────────────────────────────────────────
+// The ONLY field is the 9-digit AIC. extractAIC() is the single normalization
+// point: every source (Code39 scan + manual entry) converges here.
+//   • Code39 Area-1 bollino = "A" + 9-digit AIC → \D strip drops the "A" prefix.
 //   • Bare/manual entry = ≤9 digits → left-pad to 9.
+//   • NTIN GTIN-13 = "080" + 9-digit AIC + check digit → slice [3:12] (kept for
+//     robustness when an AIC is pasted/typed in EAN form).
 // Returns '' only when there are no digits at all (true "codice non riconosciuto").
 function extractAIC(raw) {
   const d = String(raw).replace(/\D/g, '');
@@ -2210,61 +2212,20 @@ function extractAIC(raw) {
   return d.slice(0, 9);                             // IPZS-leading9: old bollino, drop serial
 }
 
-// Parse a GS1 DataMatrix payload into { aic, expiry, lotto }. Walks Application
-// Identifiers from the start (not indexOf — avoids false matches on digits inside
-// the GTIN/AIC). Tolerates FNC1 (\x1d) and "()" AI separators.
-function parseGS1(raw) {
-  // Normalize to standard GS1 group separator \x1d; some decoders emit \x04 or \x1c instead
-  const s = String(raw).replace(/[()]/g, '').replace(/[\x04\x1c]/g, '\x1d');
-  let aic = '', expiry = '', lotto = '', i = 0;
-  while (i < s.length) {
-    if (s[i] === '\x1d') { i++; continue; }   // group separator
-    const ai = s.substr(i, 2);
-    if (ai === '01') {                          // GTIN-14 (fixed 14 digits)
-      aic = extractAIC(s.substr(i + 2, 14));
-      i += 16;
-    } else if (ai === '17') {                   // expiry YYMMDD (fixed 6 digits)
-      const ymd = s.substr(i + 2, 6);
-      let dd = ymd.slice(4, 6);
-      if (dd === '00') dd = '28';               // §3.2 fallback
-      expiry = `20${ymd.slice(0, 2)}-${ymd.slice(2, 4)}-${dd}`;
-      i += 8;
-    } else if (ai === '10' || ai === '21') {    // lotto / serial (variable length)
-      let j = i + 2;
-      while (j < s.length && s[j] !== '\x1d') j++;
-      if (ai === '10') lotto = s.substring(i + 2, j);
-      i = j;
-    } else {
-      // Unknown AI — skip to next FNC1 separator or end to preserve already-parsed fields
-      let j = i + 2;
-      while (j < s.length && s[j] !== '\x1d') j++;
-      i = j;
-    }
-  }
-  return { aic, expiry, lotto };
-}
-
-// A real 9-digit AIC always starts with "0". This rejects serial/box barcodes
-// (present on old bollini alongside the 2 AIC codes) that are NOT in the DB.
+// A real 9-digit AIC always starts with "0". This rejects any non-AIC Code39
+// barcode that might be in frame (e.g. a logistics/promo code) — only a value
+// that normalizes to a leading-0 9-digit AIC is accepted.
 function isValidAIC(aic) {
   return /^0\d{8}$/.test(aic);
 }
 
-// Decode one detected barcode into { aic, prefill, strategy } — the single
-// per-format routing point, reused by scanLoop (candidate selection) and
-// handleScan (so the two never diverge).
+// Decode one detected Code39 barcode into { aic, prefill, strategy } — the single
+// routing point, reused by scanLoop (candidate selection) and handleScan (so the
+// two never diverge). Area-1 payload is "A" + 9-digit AIC; extractAIC strips the
+// "A". prefill stays empty: the scanner extracts the AIC only (no expiry/lotto).
 function decodeAIC(code) {
   const raw = code.rawValue || '';
-  if (code.format && code.format.toLowerCase().replace(/[-_\s]/g, '') === 'datamatrix') {
-    const parsed = parseGS1(raw);
-    if (parsed.aic) {
-      return { aic: parsed.aic, prefill: {}, strategy: 'GS1-DataMatrix' };
-    }
-    // Non-GS1 / old IPZS DataMatrix encoding the AIC digits directly
-    return { aic: extractAIC(raw), prefill: {}, strategy: 'DataMatrix-extractAIC' };
-  }
-  // Linear EAN-13 / Code128: NTIN pharma code or old bollino AIC barcode
-  return { aic: extractAIC(raw), prefill: {}, strategy: 'linear-extractAIC' };
+  return { aic: extractAIC(raw), prefill: {}, strategy: 'code39-stripA' };
 }
 
 // ─── LIVE CAMERA SCANNING (BarcodeDetector — zero dependencies) ──────────────────
@@ -2282,22 +2243,22 @@ function cameraSupported() {
     && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-// Formats we scan: GS1 DataMatrix (new bollini) + linear EAN-13 / Code128
-// (NTIN pharma codes + old bollini). On old bollini the AIC lives on the 2 EAN
-// codes; the DataMatrix often carries only the serial — so EAN-13 is essential.
-// AIC-first: decodeAIC converges every format on a 9-digit AIC, and the
-// isValidAIC gate (leading 0) discards the serial/box barcode.
-const SCAN_FORMATS = ['data_matrix', 'ean_13', 'code_128'];
+// Code39 only (implementazione-scanner.md): the AIC lives in Area 1 of the Italian
+// bollino as a Code39 barcode ("A" + 9-digit AIC). DataMatrix (Area 8) and
+// Interleaved 2of5 (Area 6, the serial) are NOT scanned, so the serial is never
+// even decoded — no per-format serial-rejection needed. decodeAIC strips the "A"
+// and the isValidAIC gate (leading 0) keeps only a real AIC.
+const SCAN_FORMATS = ['code_39'];
 
 // Resolve a BarcodeDetector for SCAN_FORMATS. Use the native API when it exposes
-// data_matrix (Android/macOS/ChromeOS); otherwise (and on desktop Chrome/Edge,
-// where it's absent) load the zxing-wasm polyfill on demand. side-effects.js
+// code_39 (Android/macOS/ChromeOS); otherwise (and on desktop Chrome/Edge, where
+// BarcodeDetector is absent) load the zxing-wasm polyfill on demand. side-effects.js
 // registers a global BarcodeDetector and wires the default jsDelivr WASM path.
 async function ensureBarcodeDetector() {
   if ('BarcodeDetector' in window) {
     try {
       const supported = await BarcodeDetector.getSupportedFormats();
-      if (supported.includes('data_matrix')) {
+      if (supported.includes('code_39')) {
         // Intersect with what the native engine actually supports so an
         // unsupported format never breaks construction.
         const formats = SCAN_FORMATS.filter(f => supported.includes(f));
@@ -2326,7 +2287,7 @@ async function startCamera() {
   const video = document.getElementById('scan-video');
   try {
     scanDetector = scanDetector || await ensureBarcodeDetector();
-    // High-resolution + continuous autofocus: pharma DataMatrix modules are sub-millimetre,
+    // High-resolution + continuous autofocus: the Area-1 Code39 bars are small,
     // so we need dense pixels and a sharp focus. ideal (not exact) degrades gracefully on
     // devices that can't deliver Full HD (no OverconstrainedError).
     scanStream = await navigator.mediaDevices.getUserMedia({
@@ -2383,8 +2344,7 @@ async function scanLoop() {
     const codes = await scanDetector.detect(bitmap);
     bitmap.close();
     if (codes && codes.length && !scanBusy) {
-      // A frame may hold several barcodes (old bollino = 2 EAN + 1 DataMatrix).
-      // Pick the one that yields a real AIC; ignore the serial/box barcode.
+      // Only Code39 frames arrive. Pick the first that yields a real AIC.
       codes.forEach(c => {
         const d = decodeAIC(c);
         console.log('[ScanMed] frame code:', c.format, '| raw:', JSON.stringify(c.rawValue || ''),
@@ -2396,14 +2356,14 @@ async function scanLoop() {
         await handleScan(hit);
         return; // handleScan stops the camera; do not re-queue the loop
       }
-      // Only non-AIC codes in view (likely the serial) — keep scanning, guide the user
-      setScanStatus('Inquadra il codice AIC (inizia per 0), non il seriale');
+      // Code39 in view but not an AIC — keep scanning, guide the user
+      setScanStatus('Inquadra il codice a barre AIC (Code39) sul bollino');
     }
   } catch (e) { console.warn('[ScanMed] scan detect error:', e); }
   scanRAF = requestAnimationFrame(scanLoop);
 }
 
-// Route a detected barcode: EAN-13 → AIC; GS1 DataMatrix → AIC + expiry + lotto.
+// Route a detected Code39 barcode: extract the Area-1 AIC, then look it up.
 async function handleScan(code) {
   const { aic, prefill, strategy } = decodeAIC(code);
   console.log('[ScanMed] detected format:', code.format, '| raw:', JSON.stringify(code.rawValue || ''));
