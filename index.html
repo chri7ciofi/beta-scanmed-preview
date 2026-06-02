@@ -465,6 +465,93 @@ html, body {
 .input-field:focus { border-color: var(--blue-secondary); background: #fff; box-shadow: var(--ring); }
 .input-field::placeholder { color: var(--text-muted); }
 
+/* ─── MONTH/YEAR EXPIRY PICKER ─── */
+.mp-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--cream-darker);
+  background: #FCFBF8;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.mp-trigger:hover { border-color: var(--blue-light); }
+.mp-trigger[aria-expanded="true"] { border-color: var(--blue-secondary); background: #fff; box-shadow: var(--ring); }
+.mp-cal-ic { color: var(--blue-primary); flex-shrink: 0; }
+.mp-trigger-val { flex: 1; min-width: 0; font-weight: 600; }
+.mp-trigger-val[data-empty="true"] { color: var(--text-muted); font-weight: 500; }
+.mp-chev { color: var(--text-muted); flex-shrink: 0; transition: transform .25s cubic-bezier(.16,1,.3,1); }
+.mp-trigger[aria-expanded="true"] .mp-chev { transform: rotate(180deg); }
+
+.mp-panel {
+  margin-top: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  border: 1px solid var(--hairline-blue);
+  box-shadow: var(--shadow-float);
+  transform-origin: top center;
+  animation: mpIn .22s cubic-bezier(.16,1,.3,1);
+}
+.mp-panel[hidden] { display: none; }
+@keyframes mpIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.mp-year-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.mp-yr {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: .3px;
+  font-variant-numeric: tabular-nums;
+}
+.mp-yr-btn {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--blue-pale);
+  color: var(--blue-primary);
+  cursor: pointer;
+  transition: background .18s, transform .12s, opacity .18s;
+}
+.mp-yr-btn:hover { background: var(--blue-light); color: #fff; }
+.mp-yr-btn:active { transform: scale(.92); }
+.mp-yr-btn:disabled { opacity: .3; cursor: not-allowed; background: var(--cream-darker); color: var(--text-muted); }
+
+.mp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.mp-month {
+  padding: 11px 0;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--cream-darker);
+  background: #FCFBF8;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s, transform .1s;
+}
+.mp-month:hover:not(:disabled):not(.selected) { border-color: var(--blue-secondary); background: var(--blue-pale); transform: translateY(-1px); }
+.mp-month:active:not(:disabled) { transform: scale(.96); }
+.mp-month.selected { background: var(--grad-blue); color: #fff; border-color: transparent; box-shadow: var(--shadow-card); }
+.mp-month:disabled { opacity: .32; cursor: not-allowed; color: var(--text-muted); }
+
 /* ─── BUTTONS ─── */
 .btn {
   display: inline-flex;
@@ -1612,7 +1699,20 @@ html, body {
 
       <div class="form-group">
         <label class="form-label">DATA DI SCADENZA</label>
-        <input type="date" id="modal-scadenza" class="input-field">
+        <button type="button" class="mp-trigger" id="mp-trigger" aria-haspopup="dialog" aria-expanded="false">
+          <svg class="mp-cal-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <span class="mp-trigger-val" id="mp-trigger-val" data-empty="true">Seleziona mese e anno</span>
+          <svg class="mp-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="mp-panel" id="mp-panel" role="dialog" aria-label="Seleziona scadenza" hidden>
+          <div class="mp-year-nav">
+            <button type="button" class="mp-yr-btn" id="mp-yr-prev" aria-label="Anno precedente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <span class="mp-yr" id="mp-yr">—</span>
+            <button type="button" class="mp-yr-btn" id="mp-yr-next" aria-label="Anno successivo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+          </div>
+          <div class="mp-grid" id="mp-grid"></div>
+        </div>
+        <input type="hidden" id="modal-scadenza">
       </div>
 
       <div class="form-group">
@@ -2202,13 +2302,98 @@ function openAddDrugModal(farmaco, prefill = {}) {
   document.getElementById('modal-dp-name').textContent      = farmaco.nome_commerciale;
   document.getElementById('modal-dp-principio').textContent = farmaco.principio_attivo;
   document.getElementById('modal-add-drug-subtitle').textContent = farmaco.confezione || '';
-  const todayStr = today();
   // Scanner extracts AIC only — prefill is empty; user fills expiry/lotto manually.
-  document.getElementById('modal-scadenza').value = prefill.scadenza || '';
-  document.getElementById('modal-scadenza').min   = todayStr;
+  resetExpiryPicker(prefill.scadenza || '');
   document.getElementById('modal-qty').value      = '';
   document.getElementById('modal-lotto').value    = prefill.lotto || '';
   openModal('modal-add-drug');
+}
+
+// ─── EXPIRY MONTH/YEAR PICKER ────────────────────────────────────────────────
+const MP_MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const mpState = { year: 0, selY: -1, selM: -1 };
+
+function mpPad(n) { return String(n).padStart(2, '0'); }
+function mpEndOfMonthISO(y, m) {
+  const day = new Date(y, m + 1, 0).getDate();   // last day of month m (0-based)
+  return `${y}-${mpPad(m + 1)}-${mpPad(day)}`;
+}
+
+function mpRenderGrid() {
+  const now = new Date();
+  const curY = now.getFullYear(), curM = now.getMonth();
+  const grid = document.getElementById('mp-grid');
+  document.getElementById('mp-yr').textContent = mpState.year;
+  document.getElementById('mp-yr-prev').disabled = mpState.year <= curY;
+  grid.innerHTML = MP_MONTHS.map((label, m) => {
+    const past = mpState.year < curY || (mpState.year === curY && m < curM);
+    const sel  = mpState.year === mpState.selY && m === mpState.selM;
+    return `<button type="button" class="mp-month${sel ? ' selected' : ''}" data-m="${m}"${past ? ' disabled' : ''}>${label}</button>`;
+  }).join('');
+}
+
+function mpOpenPanel(open) {
+  const panel = document.getElementById('mp-panel');
+  const trigger = document.getElementById('mp-trigger');
+  panel.hidden = !open;
+  trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) mpRenderGrid();
+}
+
+function resetExpiryPicker(prefillISO) {
+  const valEl = document.getElementById('mp-trigger-val');
+  document.getElementById('modal-scadenza').value = '';
+  mpState.year = new Date().getFullYear();
+  mpState.selY = -1; mpState.selM = -1;
+  if (prefillISO) {
+    const d = new Date(prefillISO + 'T00:00:00');
+    if (!isNaN(d)) {
+      mpState.year = d.getFullYear();
+      mpState.selY = d.getFullYear(); mpState.selM = d.getMonth();
+      document.getElementById('modal-scadenza').value = mpEndOfMonthISO(mpState.selY, mpState.selM);
+    }
+  }
+  if (mpState.selM >= 0) {
+    valEl.textContent = `${MP_MONTHS[mpState.selM]} ${mpState.selY}`;
+    valEl.dataset.empty = 'false';
+  } else {
+    valEl.textContent = 'Seleziona mese e anno';
+    valEl.dataset.empty = 'true';
+  }
+  mpOpenPanel(false);
+}
+
+function initExpiryPicker() {
+  const trigger = document.getElementById('mp-trigger');
+  const panel   = document.getElementById('mp-panel');
+  const valEl   = document.getElementById('mp-trigger-val');
+
+  trigger.addEventListener('click', () => mpOpenPanel(panel.hidden));
+
+  document.getElementById('mp-yr-prev').addEventListener('click', () => {
+    if (mpState.year > new Date().getFullYear()) { mpState.year--; mpRenderGrid(); }
+  });
+  document.getElementById('mp-yr-next').addEventListener('click', () => { mpState.year++; mpRenderGrid(); });
+
+  document.getElementById('mp-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.mp-month');
+    if (!btn || btn.disabled) return;
+    const m = parseInt(btn.dataset.m, 10);
+    mpState.selY = mpState.year; mpState.selM = m;
+    document.getElementById('modal-scadenza').value = mpEndOfMonthISO(mpState.selY, m);
+    valEl.textContent = `${MP_MONTHS[m]} ${mpState.selY}`;
+    valEl.dataset.empty = 'false';
+    mpOpenPanel(false);
+  });
+
+  // Close on outside click / Esc
+  document.addEventListener('click', e => {
+    if (panel.hidden) return;
+    if (!panel.contains(e.target) && !trigger.contains(e.target)) mpOpenPanel(false);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !panel.hidden) mpOpenPanel(false);
+  });
 }
 
 // ─── AIC NORMALIZATION ──────────────────────────────────────────────────────────
@@ -2680,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScanner();
   initSearch();
   initModals();
+  initExpiryPicker();
 
   navigate('home');
 
