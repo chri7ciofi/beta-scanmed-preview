@@ -262,14 +262,6 @@ html, body {
 
 .screen-header .subtitle { color: rgba(255,255,255,.8); }
 
-.home-logo {
-  height: 64px;
-  width: auto;
-  display: block;
-  margin: 4px 0 0;
-  filter: drop-shadow(0 2px 8px rgba(10,25,49,.25));
-}
-
 /* ─── SECTION TITLES ─── */
 .section-title {
   font-family: var(--font-display);
@@ -597,6 +589,7 @@ html, body {
 /* ─── DISPENSA SCROLL WRAPPER ─── */
 .dispensa-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
@@ -1701,7 +1694,7 @@ html, body {
           <line x1="90" y1="120" x2="130" y2="150" stroke="white" stroke-width="1.5"/>
         </svg>
         <div class="subtitle">Benvenuto</div>
-        <img src="logo_scanmed.png" alt="ScanMed" class="home-logo">
+        <h1>ScanMed</h1>
         <p id="home-date">Giovedì, 28 maggio 2026</p>
       </div>
 
