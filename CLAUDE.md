@@ -31,6 +31,7 @@ Everything is in one file, structured top-to-bottom:
 | Mock data   | `seedMockData()` — runs once on first load if `localStorage` key absent                    |
 | Persistence | `loadState()` / `saveState()` — reads/writes `localStorage` key `scanmed_v1`               |
 | Supabase    | `fetchByAIC(aic)` · `searchFarmaci(query)` — raw `fetch()` to PostgREST REST API           |
+| Scheda Tec. | `fetchSchedaTecnica(aic)` (20h cache) · `openSchedaModal()` · `setDocLink()` — FI/RCP docs |
 | Router      | `navigate(screenId)` — shows/hides `.screen` divs, calls per-screen `render*()`            |
 | Home        | `renderHome()`                                                                             |
 | Dispensa    | `renderDispensa()`, `addToDispensa()`, `removeFromDispensa()`, `checkDuplicatePrincipio()` |
@@ -38,7 +39,7 @@ Everything is in one file, structured top-to-bottom:
 | Scanner     | `initScanner()`, `renderScanResult()` · live camera: `cameraSupported()`, `ensureBarcodeDetector()`, `startCamera()`/`stopCamera()`, `scanLoop()`, `handleScan()` · parsing: `decodeAIC()`, `extractAIC()` |
 | Search      | `initSearch()` — 300ms debounce, min 3 chars                                               |
 | Cicli       | `renderCure()`, `logDose()`, `adherencePercent()`                                          |
-| Modals      | `openModal()` / `closeModal()` + all modal button wiring                                   |
+| Modals      | `openModal()` / `closeModal()` + wiring. IDs: `modal-add-drug`, `modal-safety-alert`, `modal-bollino-info`, `modal-scheda`, `modal-add-ciclo`. Generic backdrop-click-to-close covers all `.modal-overlay` |
 | Init        | `DOMContentLoaded` — calls `loadState()`, `navigate('home')`, all `init*()`                |
 
 ## Data model (localStorage `scanmed_v1`)
