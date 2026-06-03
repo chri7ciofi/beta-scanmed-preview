@@ -3318,6 +3318,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
+    // When a new SW takes control (after a deploy), reload once to drop the stale shell.
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swReloaded) return;
+      swReloaded = true;
+      location.reload();
+    });
   }
 });
 </script>

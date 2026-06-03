@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanmed-v1';
+const CACHE_NAME = 'scanmed-v2';
 const PRECACHE_URLS = ['./', './manifest.json', './icons/icon.svg', './icons/icon-maskable.svg'];
 
 self.addEventListener('install', e => {
@@ -49,8 +49,15 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Cache-first: same-origin (app shell)
+  // Network-first: same-origin (app shell) — always serve latest deploy when online,
+  // fall back to cache offline. Prevents stale index.html being pinned forever.
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(res => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
