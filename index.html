@@ -262,6 +262,14 @@ html, body {
 
 .screen-header .subtitle { color: rgba(255,255,255,.8); }
 
+.home-logo {
+  height: 64px;
+  width: auto;
+  display: block;
+  margin: 4px 0 0;
+  filter: drop-shadow(0 2px 8px rgba(10,25,49,.25));
+}
+
 /* ─── SECTION TITLES ─── */
 .section-title {
   font-family: var(--font-display);
@@ -585,6 +593,17 @@ html, body {
 .btn-danger { background: var(--red-pale); color: var(--red-expired); }
 .btn-full { width: 100%; }
 .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+/* ─── DISPENSA SCROLL WRAPPER ─── */
+.dispensa-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 80px;
+}
+.dispensa-scroll::-webkit-scrollbar { display: none; }
 
 /* ─── FAB ─── */
 .fab {
@@ -1682,7 +1701,7 @@ html, body {
           <line x1="90" y1="120" x2="130" y2="150" stroke="white" stroke-width="1.5"/>
         </svg>
         <div class="subtitle">Benvenuto</div>
-        <h1>ScanMed</h1>
+        <img src="logo_scanmed.png" alt="ScanMed" class="home-logo">
         <p id="home-date">Giovedì, 28 maggio 2026</p>
       </div>
 
@@ -1816,21 +1835,23 @@ html, body {
     <!-- ═══════════════════════════════════════════
          SCREEN: DISPENSA
     ═══════════════════════════════════════════ -->
-    <div id="screen-dispensa" class="screen" style="position:relative;">
-      <div class="screen-header">
-        <div class="subtitle">Armadietto Digitale</div>
-        <h1>La tua Dispensa</h1>
-        <p id="dispensa-count">0 farmaci</p>
-      </div>
+    <div id="screen-dispensa" class="screen" style="position:relative; overflow:hidden; display:flex; flex-direction:column; padding-bottom:0;">
+      <div class="dispensa-scroll">
+        <div class="screen-header">
+          <div class="subtitle">Armadietto Digitale</div>
+          <h1>La tua Dispensa</h1>
+          <p id="dispensa-count">0 farmaci</p>
+        </div>
 
-      <div class="filter-chips">
-        <button class="filter-chip active" data-filter="all">Tutti</button>
-        <button class="filter-chip" data-filter="warning">In scadenza</button>
-        <button class="filter-chip" data-filter="expired">Scaduti</button>
-        <button class="filter-chip" data-filter="safe">Sicuri</button>
-      </div>
+        <div class="filter-chips">
+          <button class="filter-chip active" data-filter="all">Tutti</button>
+          <button class="filter-chip" data-filter="warning">In scadenza</button>
+          <button class="filter-chip" data-filter="expired">Scaduti</button>
+          <button class="filter-chip" data-filter="safe">Sicuri</button>
+        </div>
 
-      <div id="dispensa-list"></div>
+        <div id="dispensa-list"></div>
+      </div>
 
       <button class="fab" id="btn-open-add-drug">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
