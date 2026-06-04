@@ -1596,6 +1596,58 @@ html, body {
     margin-left: auto;
   }
 
+  /* ─── Beta mobile CTA + QR (right) ─── */
+  .desktop-side-text.right {
+    justify-content: center;
+    pointer-events: auto;
+  }
+
+  .beta-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    gap: 18px;
+    padding: 26px 24px;
+    background: var(--grad-surface, #ffffff);
+    border: 1px solid var(--hairline-blue, rgba(30, 98, 236, 0.18));
+    border-radius: 22px;
+    box-shadow: var(--shadow-float, 0 14px 40px -12px rgba(30, 98, 236, 0.28));
+    backdrop-filter: blur(4px);
+  }
+
+  .beta-cta-title {
+    font-family: 'Rosario', sans-serif;
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1.12;
+    letter-spacing: 1.5px;
+    color: #1E62EC;
+    text-transform: lowercase;
+  }
+
+  .beta-qr {
+    width: 188px;
+    height: 188px;
+    display: block;
+    border-radius: 14px;
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid var(--hairline, rgba(10, 25, 49, 0.08));
+    box-shadow: var(--shadow-sm, 0 4px 14px -6px rgba(10, 25, 49, 0.2));
+    image-rendering: pixelated;
+  }
+
+  .beta-cta-sub {
+    font-family: 'Rosario', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 400;
+    letter-spacing: 0.6px;
+    line-height: 1.35;
+    color: var(--text-muted, #5A6F8F);
+    text-transform: lowercase;
+  }
+
   .phone-frame {
     z-index: 10;
     position: relative;
@@ -1648,10 +1700,16 @@ html, body {
 <div class="desktop-side-text left">
   <span class="side-word">scansiona</span>
   <span class="side-word">gestisci</span>
+  <span class="side-word">previeni</span>
 </div>
 
 <div class="desktop-side-text right">
-  <span class="side-word">previeni</span>
+  <div class="beta-cta">
+    <span class="beta-cta-title">prova la<br>beta mobile</span>
+    <img class="beta-qr" src="qr-code-scanmed-beta.png"
+         alt="QR code per provare la beta mobile di ScanMed" />
+    <span class="beta-cta-sub">inquadra il codice<br>con il telefono</span>
+  </div>
 </div>
 
 <div class="phone-frame">
